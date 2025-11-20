@@ -1,0 +1,3 @@
+[submodule "submodules/qubic_core"]
+	path = submodules/qubic_core
+	url = https://github.com/qubic/core.git
