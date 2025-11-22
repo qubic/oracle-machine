@@ -44,8 +44,8 @@ public:
         _handler = std::make_unique<RequestHandler>(_oracleClients);
 
         // Connection to nodes
-        _server = std::make_unique<NodeConnection>(OC_SERVER_BIND, OM_SERVER_PORT);
-        _server->set_handler(
+        _nodeConnectionServer = std::make_unique<NodeConnection>(OC_SERVER_BIND, OM_SERVER_PORT);
+        _nodeConnectionServer->setHandler(
             [this](const RequestResponseHeader& header, const uint8_t* payload, int size) {
                 return _handler->handle(header, payload, size);
             });
@@ -64,7 +64,7 @@ public:
 
         std::cout << "Starting Oracle Machine..." << std::endl;
 
-        if (!_server->start())
+        if (!_nodeConnectionServer->start())
         {
             std::cerr << "Failed to start node connection" << std::endl;
             return false;
@@ -89,7 +89,7 @@ public:
 
         _shutdownRequested.store(true);
 
-        _server->stop();
+        _nodeConnectionServer->stop();
 
         for (auto& c : _oracleClients)
         {
@@ -134,7 +134,7 @@ private:
     std::atomic<bool> _running;
     std::atomic<bool> _shutdownRequested;
 
-    std::unique_ptr<NodeConnection> _server;
+    std::unique_ptr<NodeConnection> _nodeConnectionServer;
     std::map<std::string, std::unique_ptr<OracleClient>> _oracleClients;
     std::unique_ptr<RequestHandler> _handler;
 };

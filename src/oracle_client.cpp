@@ -1,3 +1,5 @@
+#include "oracle_client.h"
+
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
@@ -15,7 +17,6 @@
 #endif
 
 #include "config.h"
-#include "oracle_client.h"
 #include <chrono>
 #include <cstring>
 #include <iostream>
@@ -24,49 +25,14 @@
 namespace oracle
 {
 
-#ifdef _MSC_VER
-static bool set_timeout(int socket, int opt_name, unsigned long milliseconds)
-{
-    DWORD tv = milliseconds;
-    if (setsockopt(socket, SOL_SOCKET, opt_name, (const char*)&tv, sizeof(tv)) != 0)
-    {
-        return false;
-    }
-    return true;
-}
-#else
-static bool set_timeout(int socket, int opt_name, unsigned long milliseconds)
-{
-    struct timeval tv;
-    tv.tv_sec = milliseconds / 1000;
-    tv.tv_usec = (milliseconds % 1000) * 1000;
-    if (setsockopt(socket, SOL_SOCKET, opt_name, (const char*)&tv, sizeof(tv)) != 0)
-    {
-        return false;
-    }
-    return true;
-}
-#endif
-
 OracleClient::OracleClient(
     const std::string& id,
     const std::string& name,
     const std::string& host,
     uint16_t port) :
-    _id(id), _name(name), _host(host), _port(port), _socketFd(-1), _connected(false), _requestID(0)
+    _id(id), _name(name), _host(host), _port(port), _connected(false), _requestID(0)
 {
-#ifdef _MSC_VER
-    WSADATA wsa_data;
-    WSAStartup(MAKEWORD(2, 0), &wsa_data);
-#endif
-}
-
-OracleClient::~OracleClient()
-{
-    disconnect();
-#ifdef _MSC_VER
-    WSACleanup();
-#endif
+    // TcpClient handles socket initialization (Windows/Linux)
 }
 
 bool OracleClient::connect()
@@ -76,50 +42,18 @@ bool OracleClient::connect()
         return true;
     }
 
-    // Create socket
-    _socketFd = socket(AF_INET, SOCK_STREAM, 0);
-    if (_socketFd < 0)
-    {
-        std::cerr << "[" << _id << "] Failed to create socket" << std::endl;
-        return false;
-    }
+    // Use TcpClient to create connection
+    _session = _tcpClient.connect(_host, _port);
 
-    // Set timeouts
-    if (!set_timeout(_socketFd, SO_RCVTIMEO, ORACLE_READ_TIMEOUT_MS))
-    {
-        close(_socketFd);
-        _socketFd = -1;
-        return false;
-    }
-    if (!set_timeout(_socketFd, SO_SNDTIMEO, ORACLE_READ_TIMEOUT_MS))
-    {
-        close(_socketFd);
-        _socketFd = -1;
-        return false;
-    }
-
-    // Setup address
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(_port);
-
-    if (inet_pton(AF_INET, _host.c_str(), &addr.sin_addr) <= 0)
-    {
-        std::cerr << "[" << _id << "] Failed to resolve host: " << _host << std::endl;
-        close(_socketFd);
-        _socketFd = -1;
-        return false;
-    }
-
-    // Connect
-    if (::connect(_socketFd, (struct sockaddr*)&addr, sizeof(addr)) < 0)
+    if (!_session)
     {
         std::cerr << "[" << _id << "] Failed to connect to " << _host << ":" << _port << std::endl;
-        close(_socketFd);
-        _socketFd = -1;
         return false;
     }
+
+    // TODO: Set timeouts on the session if needed
+    // This could be added to Session class:
+    // _session->setTimeout(ORACLE_READ_TIMEOUT_MS);
 
     _connected = true;
     std::cout << "[" << _id << "] Connected to " << _host << ":" << _port << std::endl;
@@ -129,74 +63,45 @@ bool OracleClient::connect()
 void OracleClient::disconnect()
 {
     std::lock_guard<std::mutex> lock(_mutex);
-    if (_socketFd >= 0)
+
+    if (_session)
     {
-        shutdown(_socketFd, SHUT_RDWR);
-        close(_socketFd);
-        _socketFd = -1;
+        _session->close();
+        _session.reset();
     }
+
     _connected = false;
 }
 
 bool OracleClient::isConnected() const
 {
-    return _connected;
+    return _connected && _session && _session->isActive();
 }
 
-int OracleClient::receiveData(uint8_t* buffer, int sz)
+bool OracleClient::sendJSONMessage(Session& session, const std::string& json)
 {
-    int total_received = 0;
-    while (sz > 0)
-    {
-        int received = recv(_socketFd, (char*)buffer + total_received, sz, 0);
-        if (received <= 0)
-        {
-            break;
-        }
-        total_received += received;
-        sz -= received;
-    }
-    return total_received;
-}
-
-bool OracleClient::sendJSONMessage(const std::string& json)
-{
-    if (!_connected)
-        return false;
-
     // Send JSON with newline delimiter
     std::string message = json + "\n";
-    int total_sent = 0;
-    int msg_size = (int)message.size();
 
-    while (total_sent < msg_size)
-    {
-        int sent = send(_socketFd, message.c_str() + total_sent, msg_size - total_sent, 0);
-        if (sent <= 0)
-        {
-            return false;
-        }
-        total_sent += sent;
-    }
-
-    return true;
+    return session.sendData((const uint8_t*)message.c_str(), message.size());
 }
 
-std::string OracleClient::receiveJSONMessage()
+std::string OracleClient::receiveJSONMessage(Session& session)
 {
     // Read until newline
     std::string result;
-    char buffer[4096];
+    uint8_t buffer[4096];
 
-    while (true)
+    while (session.isActive())
     {
-        int received = recv(_socketFd, buffer, sizeof(buffer) - 1, 0);
+        int received = session.receive(buffer, sizeof(buffer) - 1);
         if (received <= 0)
         {
             break;
         }
+
         buffer[received] = '\0';
-        result += buffer;
+        result.append((char*)buffer, received);
 
         // Check for newline (message delimiter)
         if (result.find('\n') != std::string::npos)
@@ -205,7 +110,7 @@ std::string OracleClient::receiveJSONMessage()
         }
     }
 
-    // Remove trailing newline
+    // Remove trailing newline/carriage return
     while (!result.empty() && (result.back() == '\n' || result.back() == '\r'))
     {
         result.pop_back();
@@ -214,7 +119,7 @@ std::string OracleClient::receiveJSONMessage()
     return result;
 }
 
-// Simple JSON parsing helpers
+// Simple JSON parsing helpers (unchanged)
 static std::string extract_json_string(const std::string& json, const std::string& key)
 {
     std::string search = "\"" + key + "\"";
@@ -297,19 +202,26 @@ bool OracleClient::fetch(OracleData& data)
         return false;
     }
 
-    // Build JSON fetch request
-    std::ostringstream oss;
-    oss << "{\"type\":\"fetch\",\"request_id\":" << (++_requestID) << ",\"oracle_id\":\"" << _id
-        << "\"}";
-
-    if (!sendJSONMessage(oss.str()))
+    if (!_session || !_session->isActive())
     {
         disconnect();
         return false;
     }
 
-    // Receive JSON response
-    std::string response = receiveJSONMessage();
+    // Build JSON fetch request
+    std::ostringstream oss;
+    oss << "{\"type\":\"fetch\",\"request_id\":" << (++_requestID) << ",\"oracle_id\":\"" << _id
+        << "\"}";
+
+    // Send via Session
+    if (!sendJSONMessage(*_session, oss.str()))
+    {
+        disconnect();
+        return false;
+    }
+
+    // Receive via Session
+    std::string response = receiveJSONMessage(*_session);
     if (response.empty())
     {
         disconnect();
@@ -330,6 +242,7 @@ bool OracleClient::fetch(OracleData& data)
     data.value = extract_json_number(response, "value");
     data.timestamp = extract_json_int(response, "timestamp");
     data.valid = extract_json_bool(response, "valid");
+
     if (data.timestamp == 0)
     {
         // Use current time if not provided
@@ -337,6 +250,7 @@ bool OracleClient::fetch(OracleData& data)
                              std::chrono::system_clock::now().time_since_epoch())
                              .count();
     }
+
     if (!extract_json_bool(response, "valid"))
     {
         // If 'valid' field not present, assume valid
@@ -355,18 +269,25 @@ bool OracleClient::ping()
         return false;
     }
 
-    // Build JSON ping request
-    std::ostringstream oss;
-    oss << "{\"type\":\"ping\",\"request_id\":" << (++_requestID) << "}";
-
-    if (!sendJSONMessage(oss.str()))
+    if (!_session || !_session->isActive())
     {
         disconnect();
         return false;
     }
 
-    // Receive JSON response
-    std::string response = receiveJSONMessage();
+    // Build JSON ping request
+    std::ostringstream oss;
+    oss << "{\"type\":\"ping\",\"request_id\":" << (++_requestID) << "}";
+
+    // Send via Session
+    if (!sendJSONMessage(*_session, oss.str()))
+    {
+        disconnect();
+        return false;
+    }
+
+    // Receive via Session
+    std::string response = receiveJSONMessage(*_session);
     if (response.empty())
     {
         disconnect();

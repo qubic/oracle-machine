@@ -25,7 +25,18 @@ Session::Session(int socket_fd, const std::string& remote_ip)
     , _remoteIP(remote_ip)
     , _remotePort(0)
     , _active(true)
-    , _clientSocket(false)  // Server owns cleanup
+    , _clientSocket(false)
+    , _bytesSent(0)
+    , _bytesReceived(0)
+{
+}
+
+Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port)
+    : _socketFD(socket_fd)
+    , _remoteIP(remote_ip)
+    , _remotePort(remote_port)
+    , _active(socket_fd >= 0)
+    , _clientSocket(true)
     , _bytesSent(0)
     , _bytesReceived(0)
 {
@@ -36,11 +47,11 @@ Session::~Session()
 {
     if (_clientSocket && _socketFD >= 0)
     {
-        stop();
+        this->close();
     }
 }
 
-void Session::stop()
+void Session::close()
 {
     if (_socketFD >= 0 && _active)
     {

@@ -18,6 +18,9 @@ public:
     // Server-side constructor (called when accepting connections)
     Session(int socket_fd, const std::string& remote_ip);
 
+    // Cleint-side constructor
+    Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port);
+
     ~Session();
 
     // Get connection information
@@ -37,7 +40,7 @@ public:
     bool isActive() const { return _active; }
     
     // Manually close the session
-    void stop();
+    void close();
     
     // Get statistics
     uint64_t getBytesSent() const { return _bytesSent; }

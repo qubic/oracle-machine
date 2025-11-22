@@ -2,6 +2,11 @@ project(oracle_machine)
 
 find_package(Threads REQUIRED)
 
+set(OM_NETWORK_SOURCES
+    network/tcp_client.cpp
+    network/tcp_server.cpp
+    network/session.cpp
+)
 set(OM_SOURCES
     main.cpp
     oracle_machine.cpp
@@ -10,6 +15,7 @@ set(OM_SOURCES
     request_handler.cpp
     oracle_data.cpp
     logger.cpp
+    ${OM_NETWORK_SOURCES}
 )
 
 add_executable(oracle_machine ${OM_SOURCES})

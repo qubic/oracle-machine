@@ -3,14 +3,24 @@
 #include <atomic>
 #include <string>
 
+#include "network/session.h"
+#include "network/tcp_client.h"
 #include "oracle_data.h"
+
+#include <atomic>
+#include <memory>
+#include <mutex>
+#include <string>
 
 namespace oracle
 {
 
-// Currently each OracleClient using TCP socket and JSON protocol and only allows one request at a
-// time.
-// TODO: consider other protocols and concurrency improvements if needed.
+/**
+ * OracleClient - Client for fetching data from Oracle services.
+ * 
+ * Uses JSON protocol over TCP.
+ * Each OracleClient allows one request at a time (mutex protected).
+ */
 class OracleClient
 {
 public:
@@ -19,7 +29,7 @@ public:
         const std::string& name,
         const std::string& host,
         uint16_t port);
-    ~OracleClient();
+    ~OracleClient() = default;
 
     // Connect to oracle service
     bool connect();
@@ -43,25 +53,24 @@ public:
     uint16_t get_port() const { return _port; }
 
 private:
-    // Receive exactly sz bytes
-    int receiveData(uint8_t* buffer, int sz);
+    // Send JSON message via Session
+    bool sendJSONMessage(Session& session, const std::string& json);
 
-    // Send JSON message
-    bool sendJSONMessage(const std::string& json);
-
-    // Receive JSON response
-    std::string receiveJSONMessage();
+    // Receive JSON response via Session
+    std::string receiveJSONMessage(Session& session);
 
     std::string _id;
     std::string _name;
     std::string _host;
     uint16_t _port;
-    int _socketFd;
+    
+    TcpClient _tcpClient;
+    std::unique_ptr<Session> _session;
+    
     std::atomic<bool> _connected;
     uint32_t _requestID;
 
-    // Current each OracleClient only process one request at a time
-    // TODO: improve concurrency if needed
+    // Mutex for single request at a time
     std::mutex _mutex;
 };
 

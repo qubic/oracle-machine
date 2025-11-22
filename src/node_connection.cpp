@@ -2,19 +2,16 @@
 #include "node_connection.h"
 #include "config.h"
 #include "oracle_core/core_om_network_messages.h"
+#include "network/tcp_server.h"
+#include "network/session.h"
 
 #ifdef _MSC_VER
-#pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
 #include <Ws2tcpip.h>
-#define close(x) closesocket(x)
-#define SHUT_RDWR SD_BOTH
-typedef int socklen_t;
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #endif
 
 #include <cstring>
@@ -24,7 +21,7 @@ namespace oracle
 {
 
 // Check if IP is in the allowed list
-static bool isNodeIPAllowed(const struct sockaddr_in& addr)
+static bool isNodeIPAllowed(const ::sockaddr_in& addr)
 {
     uint8_t ip[4];
     uint32_t ip_addr = ntohl(addr.sin_addr.s_addr);
@@ -44,205 +41,62 @@ static bool isNodeIPAllowed(const struct sockaddr_in& addr)
     return false;
 }
 
-NodeConnection::NodeConnection(const std::string& bind_address, uint16_t port) :
-    _bindAddress(bind_address), _port(port), server_fd_(-1), _running(false), _stopRequested(false)
+NodeConnection::NodeConnection(const std::string& bind_address, uint16_t port)
 {
-#ifdef _MSC_VER
-    WSADATA wsa_data;
-    WSAStartup(MAKEWORD(2, 0), &wsa_data);
-#endif
+    _tcpServer = std::make_unique<TcpServer>(bind_address, port);
+    
+    // Set connection filter to validate allowed IPs
+    _tcpServer->setConnectionFilter([](const ::sockaddr_in& addr) {
+        return isNodeIPAllowed(addr);
+    });
+
+    // Set session handler to our protocol handling method
+    // this->handleSession(session) funcion will be called for each session inside the tcp server
+    _tcpServer->setSessionHandler([this](Session& session) {
+        this->handleSession(session);
+    });
 }
 
 NodeConnection::~NodeConnection()
 {
     stop();
-#ifdef _MSC_VER
-    WSACleanup();
-#endif
 }
 
-void NodeConnection::set_handler(request_handler handler)
+void NodeConnection::setHandler(std::function<std::vector<uint8_t>(const RequestResponseHeader&, const uint8_t*, int)> handler)
 {
     _handler = std::move(handler);
 }
 
 bool NodeConnection::start()
 {
-    if (_running)
-        return true;
-
-    // Create socket
-    server_fd_ = socket(AF_INET, SOCK_STREAM, 0);
-    if (server_fd_ < 0)
-    {
-        std::cerr << "Failed to create server socket" << std::endl;
-        return false;
-    }
-
-    // Set socket options
-    int opt = 1;
-    setsockopt(server_fd_, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
-
-    // Bind
-    struct sockaddr_in addr;
-    memset(&addr, 0, sizeof(addr));
-    addr.sin_family = AF_INET;
-    addr.sin_port = htons(_port);
-
-    if (_bindAddress == "0.0.0.0")
-    {
-        addr.sin_addr.s_addr = INADDR_ANY;
-    }
-    else
-    {
-        inet_pton(AF_INET, _bindAddress.c_str(), &addr.sin_addr);
-    }
-
-    if (bind(server_fd_, (struct sockaddr*)&addr, sizeof(addr)) < 0)
-    {
-        std::cerr << "Failed to bind to " << _bindAddress << ":" << _port << std::endl;
-        close(server_fd_);
-        server_fd_ = -1;
-        return false;
-    }
-
-    // Listen
-    if (listen(server_fd_, 10) < 0)
-    {
-        std::cerr << "Failed to listen" << std::endl;
-        close(server_fd_);
-        server_fd_ = -1;
-        return false;
-    }
-
-    _running = true;
-    _stopRequested = false;
-    _acceptThread = std::thread(&NodeConnection::acceptLoop, this);
-
-    std::cout << "TCP Server listening on " << _bindAddress << ":" << _port << std::endl;
-    return true;
+    return _tcpServer->start();
 }
 
 void NodeConnection::stop()
 {
-    if (!_running)
-        return;
-
-    _stopRequested = true;
-
-    // Close all active client sockets to unblock recv()
-    {
-        std::lock_guard<std::mutex> lock(_clientFDsMutex);
-        std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
-        for (int client_fd : _activeClientFDs)
-        {
-            if (client_fd >= 0)
-            {
-                shutdown(client_fd, SHUT_RDWR);
-                close(client_fd);
-            }
-        }
-        _activeClientFDs.clear();
-    }
-
-    // Close server socket to unblock accept
-    if (server_fd_ >= 0)
-    {
-        shutdown(server_fd_, SHUT_RDWR);
-        close(server_fd_);
-        server_fd_ = -1;
-    }
-
-    if (_acceptThread.joinable())
-    {
-        _acceptThread.join();
-    }
-
-    // Wait for client threads
-    for (auto& t : _clientThreads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-    _clientThreads.clear();
-
-    _running = false;
+    _tcpServer->stop();
 }
 
-void NodeConnection::acceptLoop()
+bool NodeConnection::isRunning() const
 {
-    while (!_stopRequested)
-    {
-        struct sockaddr_in client_addr;
-        socklen_t client_len = sizeof(client_addr);
-
-        int client_fd = accept(server_fd_, (struct sockaddr*)&client_addr, &client_len);
-        if (client_fd < 0)
-        {
-            if (_stopRequested)
-                break;
-            continue;
-        }
-
-        // Get client info
-        char client_ip[INET_ADDRSTRLEN];
-        inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
-
-        // Check if IP is allowed
-        if (!isNodeIPAllowed(client_addr))
-        {
-            std::cerr << "Connection rejected from " << client_ip << " (not in allowed list)"
-                      << std::endl;
-            close(client_fd);
-            continue;
-        }
-
-        std::cout << "Node connected from " << client_ip << std::endl;
-
-        // Add this client fd to active list
-        {
-            std::lock_guard<std::mutex> lock(_clientFDsMutex);
-            _activeClientFDs.push_back(client_fd);
-        }
-
-        // Handle in new thread
-        _clientThreads.emplace_back(&NodeConnection::handleClient, this, client_fd, client_ip);
-    }
+    return _tcpServer->isRunning();
 }
 
-int NodeConnection::receiveData(int socket_fd, uint8_t* buffer, int sz)
-{
-    int total_received = 0;
-    while (sz > 0)
-    {
-        int received = recv(socket_fd, (char*)buffer + total_received, sz, 0);
-        if (received <= 0)
-        {
-            break;
-        }
-        total_received += received;
-        sz -= received;
-    }
-    return total_received;
-}
-
-bool NodeConnection::sendResponse(
-    int socket_fd,
+bool NodeConnection::sendResponseToNode(
+    Session& session,
     uint8_t type,
     const uint8_t* payload,
     int payload_size)
 {
-    // Build header
+    // TODO: check if we need to combine the header and payload into a single buffer for sending
+
     RequestResponseHeader header;
     header.checkAndSetSize(sizeof(RequestResponseHeader) + payload_size);
     header.setType(type);
     header.randomizeDejavu();
 
     // Send header
-    int sent = send(socket_fd, (const char*)&header, sizeof(header), 0);
-    if (sent != sizeof(header))
+    if (!session.sendData((const uint8_t*)&header, sizeof(header)))
     {
         return false;
     }
@@ -250,30 +104,24 @@ bool NodeConnection::sendResponse(
     // Send payload
     if (payload_size > 0 && payload != nullptr)
     {
-        int total_sent = 0;
-        while (total_sent < payload_size)
-        {
-            sent = send(socket_fd, (const char*)payload + total_sent, payload_size - total_sent, 0);
-            if (sent <= 0)
-            {
-                return false;
-            }
-            total_sent += sent;
-        }
+        return session.sendData(payload, payload_size);
     }
 
     return true;
 }
 
-void NodeConnection::handleClient(int client_fd, const char* client_ip)
+// Main node's oracle message handling
+void NodeConnection::handleSession(Session& session)
 {
     uint8_t buffer[0xFFFF];
 
-    while (!_stopRequested)
+    std::cout << "Handling Oracle protocol session from " << session.getRemoteIP() << std::endl;
+
+    while (session.isActive())
     {
         // Receive header
         RequestResponseHeader header;
-        int received = receiveData(client_fd, (uint8_t*)&header, sizeof(header));
+        int received = session.receiveExact((uint8_t*)&header, sizeof(header));
         if (received != sizeof(header))
         {
             std::cout << "Connection closed or error. Received header size " << received
@@ -296,7 +144,7 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
             int payload_size = packet_size - sizeof(header);
             if (payload_size > 0)
             {
-                received = receiveData(client_fd, buffer, payload_size);
+                received = session.receiveExact(buffer, payload_size);
                 if (received != payload_size)
                 {
                     std::cerr << "Failed to receive payload while skipping (connection lost)"
@@ -312,7 +160,7 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
         int payload_size = packet_size - sizeof(header);
         if (payload_size > 0)
         {
-            received = receiveData(client_fd, buffer, payload_size);
+            received = session.receiveExact(buffer, payload_size);
             if (received != payload_size)
             {
                 std::cerr << "Failed to receive payload" << std::endl;
@@ -320,37 +168,21 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
             }
         }
 
-        // Handle request
+        // Handle request with user-provided handler
         if (_handler)
         {
+            // Get response
             std::vector<uint8_t> response = _handler(header, buffer, payload_size);
 
-            std::cout << "Send response with OracleMachineReply." << std::endl;
+            std::cout << "Sending response with OracleMachineReply to " 
+                      << session.getRemoteIP() << std::endl;
 
-            // Send response with OracleMachineReply type (191)
-            sendResponse(client_fd, OracleMachineReply::type, response.data(), response.size());
+            // Send response using Session abstraction
+            sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());
         }
     }
 
-    // Remove this client fd from active list
-    {
-        std::lock_guard<std::mutex> lock(_clientFDsMutex);
-        auto it = std::find(_activeClientFDs.begin(), _activeClientFDs.end(), client_fd);
-        if (it != _activeClientFDs.end())
-        {
-            _activeClientFDs.erase(it);
-        }
-    }
-
-    close(client_fd);
-    if (client_ip)
-    {
-        std::cout << "Node disconnected from " << client_ip << std::endl;
-    }
-    else
-    {
-        std::cout << "Node disconnected" << std::endl;
-    }
+    std::cout << "Session finished for " << session.getRemoteIP() << std::endl;
 }
 
 } // namespace oracle
