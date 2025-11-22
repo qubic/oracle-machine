@@ -2,14 +2,12 @@
 
 #include <cstdint>
 
-static constexpr uint16_t OM_SERVER_PORT = 21841;
-static constexpr char OC_SERVER_BIND[] = "0.0.0.0";
+static constexpr uint16_t OM_SERVER_PORT = 31841;
+static constexpr char OC_SERVER_BIND[] = "10.29.1.16";
 static constexpr uint64_t ORACLE_READ_TIMEOUT_MS = 5000;
 
 constexpr uint8_t NODE_LIST[][4] = {
-    {192, 168, 1, 10},
-    {192, 168, 1, 11},
-    {192, 168, 1, 12},
+    {10, 29, 1, 22},
 };
 
 struct OracleEndpoint

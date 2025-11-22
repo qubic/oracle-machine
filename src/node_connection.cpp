@@ -130,6 +130,19 @@ void NodeConnection::stop()
 
     _stopRequested = true;
 
+    // Close all active client sockets to unblock recv()
+    {
+        std::lock_guard<std::mutex> lock(_clientFDsMutex);
+        std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
+        for (int client_fd : _activeClientFDs) {
+            if (client_fd >= 0) {
+                shutdown(client_fd, SHUT_RDWR);
+                close(client_fd);
+            }
+        }
+        _activeClientFDs.clear();
+    }
+
     // Close server socket to unblock accept
     if (server_fd_ >= 0)
     {
@@ -176,17 +189,24 @@ void NodeConnection::acceptLoop()
         inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
 
         // Check if IP is allowed
-        if (!isNodeIPAllowed(client_addr)) {
-            std::cerr << "Connection rejected from " << client_ip << " (not in allowed list)" << std::endl;
+        if (!isNodeIPAllowed(client_addr))
+        {
+            std::cerr << "Connection rejected from " << client_ip << " (not in allowed list)"
+                      << std::endl;
             close(client_fd);
             continue;
         }
 
-
         std::cout << "Node connected from " << client_ip << std::endl;
 
+        // Add this client fd to active list
+        {
+            std::lock_guard<std::mutex> lock(_clientFDsMutex);
+            _activeClientFDs.push_back(client_fd);
+        }
+
         // Handle in new thread
-        _clientThreads.emplace_back(&NodeConnection::handleClient, this, client_fd);
+        _clientThreads.emplace_back(&NodeConnection::handleClient, this, client_fd, client_ip);
     }
 }
 
@@ -243,7 +263,7 @@ bool NodeConnection::sendResponse(
     return true;
 }
 
-void NodeConnection::handleClient(int client_fd)
+void NodeConnection::handleClient(int client_fd, const char* client_ip)
 {
     uint8_t buffer[0xFFFF];
 
@@ -254,7 +274,8 @@ void NodeConnection::handleClient(int client_fd)
         int received = receiveData(client_fd, (uint8_t*)&header, sizeof(header));
         if (received != sizeof(header))
         {
-            break; // Connection closed or error
+            std::cout << "Connection closed or error. Received header size " << received << std::endl;
+            break;
         }
 
         // Validate header
@@ -272,7 +293,12 @@ void NodeConnection::handleClient(int client_fd)
             int payload_size = packet_size - sizeof(header);
             if (payload_size > 0)
             {
-                receiveData(client_fd, buffer, payload_size);
+                received = receiveData(client_fd, buffer, payload_size);
+                if (received != payload_size)
+                {
+                    std::cerr << "Failed to receive payload while skipping (connection lost)" << std::endl;
+                    break;
+                }
             }
             std::cerr << "Unexpected message type: " << (int)header.type() << std::endl;
             continue;
@@ -294,13 +320,33 @@ void NodeConnection::handleClient(int client_fd)
         if (_handler)
         {
             std::vector<uint8_t> response = _handler(header, buffer, payload_size);
-            
+
+            std::cout << "Send response with OracleMachineReply." << std::endl;
+
             // Send response with OracleMachineReply type (191)
             sendResponse(client_fd, OracleMachineReply::type, response.data(), response.size());
         }
     }
 
+    // Remove this client fd from active list
+    {
+        std::lock_guard<std::mutex> lock(_clientFDsMutex);
+        auto it = std::find(_activeClientFDs.begin(), _activeClientFDs.end(), client_fd);
+        if (it != _activeClientFDs.end())
+        {
+            _activeClientFDs.erase(it);
+        }
+    } 
+
     close(client_fd);
+    if (client_ip)
+    {
+        std::cout << "Node disconnected from " << client_ip << std::endl;
+    }
+    else
+    {
+        std::cout << "Node disconnected" << std::endl;
+    }
 }
 
 } // namespace oracle

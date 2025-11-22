@@ -46,15 +46,15 @@ std::vector<uint8_t> RequestHandler::handleQuery(
     int query_data_size)
 {
     // Find oracle by interface index or by oracle_id in query data
-    std::string oracle_id;
+    std::string oracleID;
 
     // If oracle_id was passed as query data, use that
     if (query_data_size > 0 && query_data_size <= 32)
     {
-        char id_buffer[33];
-        memset(id_buffer, 0, sizeof(id_buffer));
-        memcpy(id_buffer, query_data, query_data_size);
-        oracle_id = id_buffer;
+        char idBuffer[33];
+        memset(idBuffer, 0, sizeof(idBuffer));
+        memcpy(idBuffer, query_data, query_data_size);
+        oracleID = idBuffer;
     }
     else
     {
@@ -64,20 +64,20 @@ std::vector<uint8_t> RequestHandler::handleQuery(
         {
             if (index == query.oracleInterfaceIndex)
             {
-                oracle_id = pair.first;
+                oracleID = pair.first;
                 break;
             }
             index++;
         }
     }
 
-    if (oracle_id.empty())
+    if (oracleID.empty())
     {
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
     }
 
     // Find the client
-    auto it = _clients.find(oracle_id);
+    auto it = _clients.find(oracleID);
     if (it == _clients.end())
     {
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
@@ -95,7 +95,7 @@ std::vector<uint8_t> RequestHandler::handleQuery(
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
     }
 
-    std::cout << "[" << oracle_id << "] Fetched on-demand: value=" << data.value
+    std::cout << "[" << oracleID << "] Fetched on-demand: value=" << data.value
               << ", timestamp=" << data.timestamp << std::endl;
 
     // Build reply data: oracle_id (32 bytes) + value (8 bytes) + timestamp (8 bytes)

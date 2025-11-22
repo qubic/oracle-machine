@@ -7,6 +7,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <mutex>
 
 namespace oracle
 {
@@ -36,7 +37,7 @@ public:
 
 private:
     void acceptLoop();
-    void handleClient(int client_fd);
+    void handleClient(int client_fd, const char* client_ip = nullptr);
 
     // Receive exactly sz bytes, returns actual bytes received
     int receiveData(int socket_fd, uint8_t* buffer, int sz);
@@ -52,6 +53,9 @@ private:
     std::vector<std::thread> _clientThreads;
     std::atomic<bool> _running;
     std::atomic<bool> _stopRequested;
+
+    std::vector<int> _activeClientFDs;
+    std::mutex _clientFDsMutex;
 };
 
 } // namespace oracle

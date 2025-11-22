@@ -15,7 +15,7 @@ namespace oracle
 class RequestHandler
 {
 public:
-    explicit RequestHandler(std::map<std::string, std::unique_ptr<OracleClient>>& clients);
+    RequestHandler(std::map<std::string, std::unique_ptr<OracleClient>>& clients);
     ~RequestHandler() = default;
 
     // Handle a request and return response payload (OracleMachineReply + data)
