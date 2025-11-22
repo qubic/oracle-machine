@@ -134,8 +134,10 @@ void NodeConnection::stop()
     {
         std::lock_guard<std::mutex> lock(_clientFDsMutex);
         std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
-        for (int client_fd : _activeClientFDs) {
-            if (client_fd >= 0) {
+        for (int client_fd : _activeClientFDs)
+        {
+            if (client_fd >= 0)
+            {
                 shutdown(client_fd, SHUT_RDWR);
                 close(client_fd);
             }
@@ -274,7 +276,8 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
         int received = receiveData(client_fd, (uint8_t*)&header, sizeof(header));
         if (received != sizeof(header))
         {
-            std::cout << "Connection closed or error. Received header size " << received << std::endl;
+            std::cout << "Connection closed or error. Received header size " << received
+                      << std::endl;
             break;
         }
 
@@ -296,7 +299,8 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
                 received = receiveData(client_fd, buffer, payload_size);
                 if (received != payload_size)
                 {
-                    std::cerr << "Failed to receive payload while skipping (connection lost)" << std::endl;
+                    std::cerr << "Failed to receive payload while skipping (connection lost)"
+                              << std::endl;
                     break;
                 }
             }
@@ -336,7 +340,7 @@ void NodeConnection::handleClient(int client_fd, const char* client_ip)
         {
             _activeClientFDs.erase(it);
         }
-    } 
+    }
 
     close(client_fd);
     if (client_ip)

@@ -9,6 +9,7 @@ set(OM_SOURCES
     node_connection.cpp
     request_handler.cpp
     oracle_data.cpp
+    logger.cpp
 )
 
 add_executable(oracle_machine ${OM_SOURCES})

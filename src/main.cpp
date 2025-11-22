@@ -1,8 +1,14 @@
 #include "oracle_machine.h"
+#include "logger.h"
+
 #include <iostream>
 
 int main(int argc, char* argv[]) 
 {
+    Logger::init();
+    Logger::init("om_log.txt");             
+    Logger::setLevel(Logger::Level::DEBUG);
+
     std::cout << "=== Oracle Machine DRAFT ===" << std::endl;
     std::cout << std::endl;
     
@@ -29,6 +35,6 @@ int main(int argc, char* argv[])
     
     // Stop the machine
     machine.stop();
-    
+
     return 0;
 }
