@@ -4,73 +4,86 @@
 
 #if ENABLE_LOGGING
 
-
 #include <sstream>
 
-namespace Logger {
+// Simple logger use normal C++ streams and file output
+// TODO: consider using third-party logging library for more features
 
-    enum class Level {
-        DEBUG = 0,
-        INFO,
-        WARNING,
-        ERROR,
-        OFF
-    };
+namespace Logger
+{
 
-    void init(const char* filePath = nullptr);
-    void shutdown();
-    void setLevel(Level lvl);
+enum class Level
+{
+    DEBUG = 0,
+    INFO,
+    WARNING,
+    ERROR,
+    OFF
+};
 
-    // internal function used by LogStream
-    void commit(Level lvl, const char* file, int line, const std::string& msg);
+void init(bool logToConsole = true, const char* filePath = nullptr);
+void shutdown();
+void setLevel(Level lvl);
 
-    class LogStream {
-    public:
-        LogStream(Level lvl, const char* file, int line)
-            : level(lvl), file(file), line(line) {}
+// internal function used by LogStream
+void commit(Level lvl, const char* file, int line, const std::string& msg);
 
-        // streaming operator
-        template<typename T>
-        LogStream& operator<<(const T& value) {
-            buffer << value;
-            return *this;
-        }
+class LogStream
+{
+public:
+    LogStream(Level lvl, const char* file, int line) : level(lvl), file(file), line(line) {}
 
-        // support manipulators like std::endl
-        LogStream& operator<<(std::ostream& (*manip)(std::ostream&)) {
-            manip(buffer);
-            return *this;
-        }
+    // streaming operator
+    template <typename T>
+    LogStream& operator<<(const T& value)
+    {
+        buffer << value;
+        return *this;
+    }
 
-        ~LogStream();  // implemented in logger.cpp
+    // support manipulators like std::endl
+    LogStream& operator<<(std::ostream& (*manip)(std::ostream&))
+    {
+        manip(buffer);
+        return *this;
+    }
 
-    private:
-        Level level;
-        const char* file;
-        int line;
-        std::ostringstream buffer;
-    };
-}
+    ~LogStream(); // implemented in logger.cpp
+
+private:
+    Level level;
+    const char* file;
+    int line;
+    std::ostringstream buffer;
+};
+} // namespace Logger
 
 // Macros — lightweight wrapper
-#define LOG_DEBUG()   Logger::LogStream(Logger::Level::DEBUG,   __FILE__, __LINE__)
-#define LOG_INFO()    Logger::LogStream(Logger::Level::INFO,    __FILE__, __LINE__)
-#define LOG_WARNING() Logger::LogStream(Logger::Level::WARNING, __FILE__, __LINE__)
-#define LOG_ERROR()   Logger::LogStream(Logger::Level::ERROR,   __FILE__, __LINE__)
+#define OM_LOG_DEBUG() Logger::LogStream(Logger::Level::DEBUG, NULL, 0)
+#define OM_LOG_INFO() Logger::LogStream(Logger::Level::INFO, NULL, 0)
+#define OM_LOG_WARNING() Logger::LogStream(Logger::Level::WARNING, NULL, 0)
+#define OM_LOG_ERROR() Logger::LogStream(Logger::Level::ERROR, __FILE__, __LINE__)
 
 #else
 
-namespace Logger {
-    enum class Level { DEBUG, INFO, WARNING, ERROR, OFF };
-    inline void init(const char*) {}
-    inline void shutdown() {}
-    inline void setLevel(Level) {}
-}
+namespace Logger
+{
+enum class Level
+{
+    DEBUG,
+    INFO,
+    WARNING,
+    ERROR,
+    OFF
+};
+inline void init(const char*) {}
+inline void shutdown() {}
+inline void setLevel(Level) {}
+} // namespace Logger
 
-#define LOG_DEBUG() 
-#define LOG_INFO()   
-#define LOG_WARNING() 
-#define LOG_ERROR()   
-
+#define OM_LOG_DEBUG()
+#define OM_LOG_INFO()
+#define OM_LOG_WARNING()
+#define OM_LOG_ERROR()
 
 #endif

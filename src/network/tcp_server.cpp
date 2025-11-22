@@ -1,4 +1,5 @@
 #include "tcp_server.h"
+#include "logger.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
@@ -10,6 +11,7 @@ typedef int socklen_t;
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -57,13 +59,24 @@ bool TcpServer::start()
     _serverFD = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFD < 0)
     {
-        std::cerr << "Failed to create server socket" << std::endl;
+        OM_LOG_ERROR() << "Failed to create server socket" ;
         return false;
     }
 
     // Set socket options
     int opt = 1;
     setsockopt(_serverFD, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
+
+#ifndef _MSC_VER
+    // SO_REUSEPORT helps on Linux/Unix systems for faster rebinding
+    setsockopt(_serverFD, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+#endif
+
+    // Set SO_LINGER to close immediately without TIME_WAIT
+    linger sl;
+    sl.l_onoff = 1;  // Enable linger
+    sl.l_linger = 0; // Timeout = 0 (close immediately, send RST)
+    setsockopt(_serverFD, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
 
     // Bind
     struct sockaddr_in addr;
@@ -82,7 +95,7 @@ bool TcpServer::start()
 
     if (bind(_serverFD, (struct sockaddr*)&addr, sizeof(addr)) < 0)
     {
-        std::cerr << "Failed to bind to " << _bindAddress << ":" << _port << std::endl;
+        OM_LOG_ERROR() << "Failed to bind to " << _bindAddress << ":" << _port ;
         close(_serverFD);
         _serverFD = -1;
         return false;
@@ -91,7 +104,7 @@ bool TcpServer::start()
     // Listen
     if (listen(_serverFD, 10) < 0)
     {
-        std::cerr << "Failed to listen" << std::endl;
+        OM_LOG_ERROR() << "Failed to listen" ;
         close(_serverFD);
         _serverFD = -1;
         return false;
@@ -103,66 +116,135 @@ bool TcpServer::start()
     // Laucnh accept thread and handle this connection by different thread
     _acceptThread = std::thread(&TcpServer::acceptLoop, this);
 
-    std::cout << "TCP Server listening on " << _bindAddress << ":" << _port << std::endl;
+    OM_LOG_INFO() << "TCP Server listening on " << _bindAddress << ":" << _port ;
     return true;
 }
 
+void TcpServer::cleanupFinishedThreads()
+{
+    std::lock_guard<std::mutex> lock(_threadsMutex);
+    auto it = _clientThreads.begin();
+    while (it != _clientThreads.end())
+    {
+        if (it->joinable())
+        {
+            it->join();
+            it = _clientThreads.erase(it);
+        }
+        else
+        {
+            ++it;
+        }
+    }
+}
+
+// Order of shutdown:
+// 1. Close server socket first
+// 2. Join accept thread
+// 3. Shutdown client sockets (but don't close!)
+// 4. Join all client threads (they close their own sockets)
 void TcpServer::stop()
 {
     if (!_running)
         return;
 
+    OM_LOG_INFO() << "Initiating server shutdown..." ;
+
     _stopRequested = true;
 
-    // Close all active client sockets to unblock recv()
+    // Close server socket first to stop accepting new connections
+    if (_serverFD >= 0)
+    {
+        OM_LOG_INFO() << "Closing server socket..." ;
+        close(_serverFD);
+        _serverFD = -1;
+    }
+
+    // Wait for accept thread to exit
+    if (_acceptThread.joinable())
+    {
+        OM_LOG_INFO() << "Waiting for accept thread..." ;
+        _acceptThread.join();
+    }
+
+    // Close all active client sockets to unblock recv() calls
     {
         std::lock_guard<std::mutex> lock(_clientFDsMutex);
-        std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
+        OM_LOG_INFO() << "Closing " << _activeClientFDs.size() << " active connections..." ;
         for (int client_fd : _activeClientFDs)
         {
             if (client_fd >= 0)
             {
                 shutdown(client_fd, SHUT_RDWR);
-                close(client_fd);
             }
         }
+    }
+
+    // Wait for all client threads cleanup
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        OM_LOG_INFO() << "Waiting for " << _clientThreads.size() << " client threads..." ;
+        for (auto& t : _clientThreads)
+        {
+            if (t.joinable())
+            {
+                t.join();
+            }
+        }
+        _clientThreads.clear();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(_clientFDsMutex);
         _activeClientFDs.clear();
     }
 
-    // Close server socket to unblock accept
-    if (_serverFD >= 0)
-    {
-        shutdown(_serverFD, SHUT_RDWR);
-        close(_serverFD);
-        _serverFD = -1;
-    }
-
-    if (_acceptThread.joinable())
-    {
-        _acceptThread.join();
-    }
-
-    // Wait for client threads
-    for (auto& t : _clientThreads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-    _clientThreads.clear();
-
     _running = false;
+
+    OM_LOG_INFO() << "Server shutdown complete" ;
 }
 
 void TcpServer::acceptLoop()
 {
     while (!_stopRequested)
     {
-        struct sockaddr_in client_addr;
+#ifdef _MSC_VER
+        // Windows: select()
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(_serverFD, &readfds);
+
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 500000;
+
+        int result = select(_serverFD + 1, &readfds, NULL, NULL, &timeout);
+#else
+        // Linux: poll()
+        pollfd pfd;
+        pfd.fd = _serverFD;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+
+        int result = poll(&pfd, 1, 500); // 500ms
+#endif
+
+        if (result < 0)
+        {
+            // Error
+            continue;
+        }
+        else if (result == 0)
+        {
+            // Timeout - check _stopRequested and continue
+            continue;
+        }
+
+        // Socket is ready for accept
+        sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
 
-        int client_fd = accept(_serverFD, (struct sockaddr*)&client_addr, &client_len);
+        int client_fd = accept(_serverFD, (sockaddr*)&client_addr, &client_len);
         if (client_fd < 0)
         {
             if (_stopRequested)
@@ -177,12 +259,12 @@ void TcpServer::acceptLoop()
         // Check connection filter if set
         if (_connectionFilter && !_connectionFilter(client_addr))
         {
-            std::cerr << "Connection rejected from " << client_ip << " (filtered)" << std::endl;
+            OM_LOG_ERROR() << "Connection rejected from " << client_ip << " (filtered)" ;
             close(client_fd);
             continue;
         }
 
-        std::cout << "Client connected from " << client_ip << std::endl;
+        OM_LOG_INFO() << "Client connected from " << client_ip ;
 
         // Add this client fd to active list so that we can know which to close on shutdown
         // This will prevent the case that the server is stopped but some client threads are still
@@ -191,6 +273,9 @@ void TcpServer::acceptLoop()
             _activeClientFDs.push_back(client_fd);
         }
 
+        // Cleanup finished threads
+        cleanupFinishedThreads();
+
         // Handle each connected client in new thread
         _clientThreads.emplace_back(&TcpServer::clientThread, this, client_fd, client_ip);
     }
@@ -198,19 +283,22 @@ void TcpServer::acceptLoop()
 
 void TcpServer::clientThread(int client_fd, const std::string& client_ip)
 {
-    // Create Session object
-    Session session(client_fd, client_ip);
+    // Create Session object (It takes ownership of client_fd)
+    Session session(client_fd, client_ip, 0);
 
-    // Handle the session (virtual method - can be overridden)
+    // The thread will now wait forever for the Node to send data.
+    session.setTimeout(0); 
+    
+    // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
+    session.setKeepAlive(true);
+
+    // Handle the session
     handleSession(session);
 
     // Cleanup - remove from active list
     removeClientFD(client_fd);
 
-    // Close the socket
-    close(client_fd);
-
-    std::cout << "Client disconnected from " << client_ip << std::endl;
+    OM_LOG_INFO() << "Client disconnected from " << client_ip ;
 }
 
 void TcpServer::handleSession(Session& session)

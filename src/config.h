@@ -10,21 +10,21 @@ constexpr uint8_t NODE_LIST[][4] = {
     {10, 29, 1, 22},
 };
 
-struct OracleEndpoint
+struct InterfaceEndpoint
 {
-    const char* id;
-    const char* name;
-    const char* host;
-    uint16_t port;
-    int fetchIntervalMs;
+    uint32_t interfaceIndex; // 0 = Price, 1 = Weather
+    const char* interfaceName;
+    const char* serviceHost; // Aggregator service
+    uint16_t servicePort;
+    int cacheTTL; // Cache time to live in seconds. TODO: cache data so we can don't need to refetch
 };
 
-constexpr OracleEndpoint ORACLE_LIST[] = {
-    {"price",   "Price Oracle",   "192.168.1.20", 9001, 5000},
-    {"weather", "Weather Oracle", "192.168.1.21", 9002, 60000},
-    {"random",  "Random Oracle",  "localhost",    9003, 1000},
+// The id must match the Oracle Interface index defined in oracle_interfaces/Price.h etc.
+constexpr InterfaceEndpoint INTERFACE_ENDPOINTS[] = {
+    {0, "Price", "192.168.1.20", 9001, 30},    // ONE for all price providers
+    {1, "Weather", "192.168.1.21", 9002, 300}, // ONE for all weather providers
 };
 
-constexpr uint32_t ORACLE_COUNT = sizeof(ORACLE_LIST) / sizeof(ORACLE_LIST[0]);
+constexpr uint32_t ORACLE_INTERFACES_COUNT =
+    sizeof(INTERFACE_ENDPOINTS) / sizeof(INTERFACE_ENDPOINTS[0]);
 constexpr uint32_t NODE_COUNT = sizeof(NODE_LIST) / sizeof(NODE_LIST[0]);
-
