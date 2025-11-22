@@ -15,7 +15,6 @@ static std::atomic<bool> gSignalStop(false);
 
 static void signal_handler(int signum)
 {
-    std::cout << "\nReceived signal " << signum << ", shutting down..." << std::endl;
     if (!gSignalStop.load())
     {
         gSignalStop.store(true);
@@ -89,6 +88,12 @@ public:
 
         _shutdownRequested.store(true);
 
+        // Unblock all oracle clients immediately
+        for (auto& c : _oracleClients) 
+        {
+             c.second->forceShutdown(); 
+        }
+
         _nodeConnectionServer->stop();
 
         for (auto& c : _oracleClients)
@@ -111,6 +116,7 @@ public:
         {
             std::this_thread::sleep_for(std::chrono::milliseconds(100));
         }
+        stop();
     }
 
     int setupOracles()

@@ -37,8 +37,12 @@ public:
     // Disconnect from oracle service
     void disconnect();
 
+    void forceShutdown();
+
     // Check if connected
     bool isConnected() const;
+
+    void requestShutdown() { _shutdownRequested = true; }
 
     // Fetch data from oracle (uses JSON protocol)
     bool fetch(OracleData& data);
@@ -72,6 +76,8 @@ private:
 
     // Mutex for single request at a time
     std::mutex _mutex;
+
+    std::atomic<bool> _shutdownRequested;
 };
 
 } // namespace oracle

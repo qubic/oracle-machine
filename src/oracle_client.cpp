@@ -32,7 +32,7 @@ OracleClient::OracleClient(
     uint16_t port) :
     _id(id), _name(name), _host(host), _port(port), _connected(false), _requestID(0)
 {
-    // TcpClient handles socket initialization (Windows/Linux)
+
 }
 
 bool OracleClient::connect()
@@ -42,8 +42,12 @@ bool OracleClient::connect()
         return true;
     }
 
+    std::cout << "fetch: TcpClient connect..." << std::endl;
+
     // Use TcpClient to create connection
     _session = _tcpClient.connect(_host, _port);
+
+    std::cout << "fetch: TcpClient connect..." << std::endl;
 
     if (!_session)
     {
@@ -197,11 +201,13 @@ bool OracleClient::fetch(OracleData& data)
 {
     std::lock_guard<std::mutex> lock(_mutex);
 
+    std::cout << "fetch: Try to connect..." << std::endl;
     if (!_connected && !connect())
     {
         return false;
     }
 
+    std::cout << "fetch: Connected." << std::endl;
     if (!_session || !_session->isActive())
     {
         disconnect();
@@ -297,6 +303,14 @@ bool OracleClient::ping()
     // Check for pong
     std::string type = extract_json_string(response, "type");
     return (type == "pong");
+}
+
+void OracleClient::forceShutdown()
+{
+    if (_session)
+    {
+        _session->forceShutdown();  // Unblock any pending recv()
+    }
 }
 
 } // namespace oracle

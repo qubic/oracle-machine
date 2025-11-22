@@ -45,6 +45,11 @@ std::vector<uint8_t> RequestHandler::handleQuery(
     const uint8_t* query_data,
     int query_data_size)
 {
+    std::cout << "OracleMachineQuery:"
+              << " - oracleInterfaceIndex: " << query.oracleInterfaceIndex
+              << " - type: " << query.type << " - oracleQueryId: " << query.oracleQueryId
+              << " - timeoutInSeconds: " << query.timeoutInSeconds << std::endl;
+
     // Find oracle by interface index or by oracle_id in query data
     std::string oracleID;
 
@@ -83,7 +88,11 @@ std::vector<uint8_t> RequestHandler::handleQuery(
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
     }
 
+    // TODO: hack around, the OracleClient fetch data will take a long time here when pressing Ctrl+C
+    //return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
+
     // Fetch data from Oracle
+    std::cout << "[" << oracleID << "] fetching data ..." << std::endl;
     OracleData data;
     if (!it->second->fetch(data))
     {

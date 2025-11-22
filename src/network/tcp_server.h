@@ -27,9 +27,9 @@ class TcpServer
 {
 public:
     // Callback types
-    using ConnectionFilter =
-        std::function<bool(const ::sockaddr_in&)>;                // filter by client address
-    using SessionHandler = std::function<void(Session& session)>; // handle session, main process logic
+    using ConnectionFilter = std::function<bool(const ::sockaddr_in&)>; // filter by client address
+    using SessionHandler =
+        std::function<void(Session& session)>; // handle session, main process logic
 
     TcpServer(const std::string& bind_address, uint16_t port);
     ~TcpServer();
@@ -52,6 +52,7 @@ private:
     void acceptLoop();
     void clientThread(int client_fd, const std::string& client_ip);
     void removeClientFD(int client_fd);
+    void cleanupFinishedThreads(); 
 
     std::string _bindAddress;
     uint16_t _port;
@@ -65,6 +66,8 @@ private:
 
     std::vector<int> _activeClientFDs;
     std::mutex _clientFDsMutex;
+
+    std::mutex _threadsMutex;
 
     // Callbacks
     ConnectionFilter _connectionFilter;

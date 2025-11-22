@@ -1,9 +1,9 @@
 
 #include "node_connection.h"
 #include "config.h"
-#include "oracle_core/core_om_network_messages.h"
-#include "network/tcp_server.h"
 #include "network/session.h"
+#include "network/tcp_server.h"
+#include "oracle_core/core_om_network_messages.h"
 
 #ifdef _MSC_VER
 #include <Winsock2.h>
@@ -44,17 +44,14 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
 NodeConnection::NodeConnection(const std::string& bind_address, uint16_t port)
 {
     _tcpServer = std::make_unique<TcpServer>(bind_address, port);
-    
+
     // Set connection filter to validate allowed IPs
-    _tcpServer->setConnectionFilter([](const ::sockaddr_in& addr) {
-        return isNodeIPAllowed(addr);
-    });
+    _tcpServer->setConnectionFilter(
+        [](const ::sockaddr_in& addr) { return isNodeIPAllowed(addr); });
 
     // Set session handler to our protocol handling method
     // this->handleSession(session) funcion will be called for each session inside the tcp server
-    _tcpServer->setSessionHandler([this](Session& session) {
-        this->handleSession(session);
-    });
+    _tcpServer->setSessionHandler([this](Session& session) { this->handleSession(session); });
 }
 
 NodeConnection::~NodeConnection()
@@ -62,7 +59,8 @@ NodeConnection::~NodeConnection()
     stop();
 }
 
-void NodeConnection::setHandler(std::function<std::vector<uint8_t>(const RequestResponseHeader&, const uint8_t*, int)> handler)
+void NodeConnection::setHandler(
+    std::function<std::vector<uint8_t>(const RequestResponseHeader&, const uint8_t*, int)> handler)
 {
     _handler = std::move(handler);
 }
@@ -174,8 +172,8 @@ void NodeConnection::handleSession(Session& session)
             // Get response
             std::vector<uint8_t> response = _handler(header, buffer, payload_size);
 
-            std::cout << "Sending response with OracleMachineReply to " 
-                      << session.getRemoteIP() << std::endl;
+            std::cout << "Sending response with OracleMachineReply to " << session.getRemoteIP()
+                      << std::endl;
 
             // Send response using Session abstraction
             sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());

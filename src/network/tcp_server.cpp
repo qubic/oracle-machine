@@ -107,14 +107,50 @@ bool TcpServer::start()
     return true;
 }
 
+void TcpServer::cleanupFinishedThreads()
+{
+    std::lock_guard<std::mutex> lock(_threadsMutex);
+    auto it = _clientThreads.begin();
+    while (it != _clientThreads.end())
+    {
+        if (!it->joinable())  // Thread finished
+            it = _clientThreads.erase(it);
+        else
+            ++it;
+    }
+}
+
+// Order of shutdown:
+// 1. Close server socket first
+// 2. Join accept thread
+// 3. Shutdown client sockets (but don't close!)
+// 4. Join all client threads (they close their own sockets)
 void TcpServer::stop()
 {
     if (!_running)
         return;
 
+    std::cout << "Initiating server shutdown..." << std::endl;
+
     _stopRequested = true;
 
-    // Close all active client sockets to unblock recv()
+    // Close server socket first to stop accepting new connections
+    if (_serverFD >= 0)
+    {
+        std::cout << "Closing server socket..." << std::endl;
+        shutdown(_serverFD, SHUT_RDWR);
+        close(_serverFD);
+        _serverFD = -1;
+    }
+
+    // Wait for accept thread to exit
+    if (_acceptThread.joinable())
+    {
+        std::cout << "Waiting for accept thread..." << std::endl;
+        _acceptThread.join();
+    }
+
+    // Close all active client sockets to unblock recv() calls
     {
         std::lock_guard<std::mutex> lock(_clientFDsMutex);
         std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
@@ -123,36 +159,32 @@ void TcpServer::stop()
             if (client_fd >= 0)
             {
                 shutdown(client_fd, SHUT_RDWR);
-                close(client_fd);
             }
         }
+    }
+
+    // Wait for all client threads cleanup
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        std::cout << "Waiting for " << _clientThreads.size() << " client threads..." << std::endl;
+        for (auto& t : _clientThreads)
+        {
+            if (t.joinable())
+            {
+                t.join();
+            }
+        }
+        _clientThreads.clear();
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(_clientFDsMutex);
         _activeClientFDs.clear();
     }
 
-    // Close server socket to unblock accept
-    if (_serverFD >= 0)
-    {
-        shutdown(_serverFD, SHUT_RDWR);
-        close(_serverFD);
-        _serverFD = -1;
-    }
-
-    if (_acceptThread.joinable())
-    {
-        _acceptThread.join();
-    }
-
-    // Wait for client threads
-    for (auto& t : _clientThreads)
-    {
-        if (t.joinable())
-        {
-            t.join();
-        }
-    }
-    _clientThreads.clear();
-
     _running = false;
+
+    std::cout << "Server shutdown complete" << std::endl;
 }
 
 void TcpServer::acceptLoop()
@@ -190,6 +222,9 @@ void TcpServer::acceptLoop()
             std::lock_guard<std::mutex> lock(_clientFDsMutex);
             _activeClientFDs.push_back(client_fd);
         }
+
+        // Cleanup finished threads
+        cleanupFinishedThreads();
 
         // Handle each connected client in new thread
         _clientThreads.emplace_back(&TcpServer::clientThread, this, client_fd, client_ip);

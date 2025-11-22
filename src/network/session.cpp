@@ -20,28 +20,27 @@ namespace oracle
 {
 
 // Server-side constructor (when accepting connections)
-Session::Session(int socket_fd, const std::string& remote_ip)
-    : _socketFD(socket_fd)
-    , _remoteIP(remote_ip)
-    , _remotePort(0)
-    , _active(true)
-    , _clientSocket(false)
-    , _bytesSent(0)
-    , _bytesReceived(0)
+Session::Session(int socket_fd, const std::string& remote_ip) :
+    _socketFD(socket_fd),
+    _remoteIP(remote_ip),
+    _remotePort(0),
+    _active(true),
+    _clientSocket(false),
+    _bytesSent(0),
+    _bytesReceived(0)
 {
 }
 
-Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port)
-    : _socketFD(socket_fd)
-    , _remoteIP(remote_ip)
-    , _remotePort(remote_port)
-    , _active(socket_fd >= 0)
-    , _clientSocket(true)
-    , _bytesSent(0)
-    , _bytesReceived(0)
+Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port) :
+    _socketFD(socket_fd),
+    _remoteIP(remote_ip),
+    _remotePort(remote_port),
+    _active(socket_fd >= 0),
+    _clientSocket(true),
+    _bytesSent(0),
+    _bytesReceived(0)
 {
 }
-
 
 Session::~Session()
 {
@@ -58,13 +57,13 @@ void Session::close()
         shutdown(_socketFD, SHUT_RDWR);
         ::close(_socketFD);
         _active = false;
-        
-        std::cout << "Session closed: " 
-                  << _remoteIP << ":" << _remotePort
+
+        std::cout << "Session closed: " << _remoteIP << ":" << _remotePort
                   << " (sent: " << _bytesSent << " bytes, "
                   << "received: " << _bytesReceived << " bytes)" << std::endl;
     }
 }
+
 
 bool Session::sendData(const uint8_t* data, int size)
 {
@@ -118,9 +117,19 @@ int Session::receive(uint8_t* buffer, int sz)
         _active = false;
         return 0;
     }
-    
+
     _bytesReceived += received;
     return received;
 }
+
+void Session::forceShutdown()
+{
+    if (_socketFD >= 0 && _active)
+    {
+        shutdown(_socketFD, SHUT_RDWR);  // Unblocks recv()
+        _active.store(false);                  // Mark as inactive
+    }
+}
+
 
 } // namespace oracle

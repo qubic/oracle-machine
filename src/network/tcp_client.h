@@ -16,28 +16,22 @@ namespace oracle
 class TcpClient
 {
 public:
-    // Callbacks
-    using SessionHandler = std::function<void(Session& session)>;
-    using ConnectionHandler = std::function<void(const std::string& remote_ip, uint16_t port)>;
-
     TcpClient();
     ~TcpClient();
 
-    // Set callbacks
-    void setSessionHandler(SessionHandler handler);
-
     // Connect to server - returns Session object if successful
-    std::unique_ptr<Session> connect(const std::string& server_address, uint16_t port);
-
-    // Connect and run session handler (blocking until disconnection)
-    bool connectAndRun(const std::string& server_address, uint16_t port);
+    std::unique_ptr<Session> connect(
+        const std::string& host,
+        uint16_t port,
+        int timeout_ms = 5000);
 
 private:
-    void initializeSockets();
-    void cleanupSockets();
 
-    SessionHandler _sessionHandler;
-    bool _socketsInitialized;
+    // Helper: Set socket to non-blocking mode
+    bool setNonBlocking(int sock_fd);
+    
+    // Helper: Wait for socket to become writable (connected) with timeout
+    bool waitForConnect(int sock_fd, int timeout_ms);
 };
 
 } // namespace oracle

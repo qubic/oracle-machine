@@ -32,9 +32,6 @@ int main(int argc, char* argv[])
     
     // Wait for shutdown signal
     machine.waitForShutdown();
-    
-    // Stop the machine
-    machine.stop();
 
     return 0;
 }
