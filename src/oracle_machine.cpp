@@ -63,10 +63,17 @@ public:
 
         std::cout << "Starting Oracle Machine..." << std::endl;
 
+        // Start Node Connection Server
         if (!_nodeConnectionServer->start())
         {
             std::cerr << "Failed to start node connection" << std::endl;
             return false;
+        }
+        
+        // Start all OracleClients
+        for (auto& pair : _oracleClients)
+        {
+            pair.second->start();
         }
 
         _running.store(true);
@@ -88,21 +95,21 @@ public:
 
         _shutdownRequested.store(true);
 
-        // Unblock all oracle clients immediately
-        for (auto& c : _oracleClients) 
+        // Stop the Node Server (closes listening socket and client sockets)
+        // This unblocks any NodeConnection threads waiting on recv()
+        if (_nodeConnectionServer)
         {
-             c.second->forceShutdown(); 
+            _nodeConnectionServer->stop();
         }
 
-        _nodeConnectionServer->stop();
-
-        for (auto& c : _oracleClients)
+        // Unblock any OracleClients waiting on network I/O
+        // This breaks the deadlock if a fetch() is stuck in recv()
+        for (auto& pair : _oracleClients)
         {
-            c.second->disconnect();
+            pair.second->stop();
         }
 
         _running.store(false);
-
         std::cout << "Oracle Machine stopped" << std::endl;
     }
 

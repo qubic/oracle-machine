@@ -1,28 +1,44 @@
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <memory>
 #include <string>
-#include <atomic>
 
 namespace oracle
 {
 
 /**
- * Session represents a TCP connection endpoint, mainly incharge of data sending and receiving.
- * - Server-side: accepted client connections
- * - Client-side: outgoing connections to servers. Implement later
+ * Session represents a TCP connection endpoint.
+ * * RAII Compliant:
+ * - This class strictly owns the socket file descriptor.
+ * - It is Move-Constructible and Move-Assignable.
+ * - It is NOT Copyable.
+ * - Destructor automatically closes the connection.
  */
 class Session
 {
 public:
-    // Server-side constructor (called when accepting connections)
-    Session(int socket_fd, const std::string& remote_ip);
-
-    // Cleint-side constructor
+    // Main constructor (takes ownership of socket_fd)
     Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port);
 
+    // Destructor (closes socket)
     ~Session();
+
+    // Delete Copy (Prevent double-close of same FD)
+    Session(const Session&) = delete;
+    Session& operator=(const Session&) = delete;
+
+    // Allow Move (Transfer ownership)
+    Session(Session&& other) noexcept;
+    Session& operator=(Session&& other) noexcept;
+
+    // Set read/write timeout in milliseconds
+    // Returns false if setting socket option failed
+    bool setTimeout(uint32_t timeout_ms);
+
+    // Enable TCP Keep-Alive packets
+    bool setKeepAlive(bool enable);
 
     // Get connection information
     const std::string& getRemoteIP() const { return _remoteIP; }
@@ -31,7 +47,7 @@ public:
     // Send raw data
     bool sendData(const uint8_t* data, int size);
 
-    // Receive exactly sz bytes
+    // Receive exactly sz bytes (blocks until all bytes received or error/timeout)
     int receiveExact(uint8_t* buffer, int sz);
 
     // Receive up to sz bytes (returns actual bytes received)
@@ -43,6 +59,7 @@ public:
     // Manually close the session
     void close();
 
+    // Force shutdown (thread-safe, unblocks recv)
     void forceShutdown();
 
     // Get statistics
@@ -54,7 +71,6 @@ private:
     std::string _remoteIP;
     uint16_t _remotePort;
     std::atomic<bool> _active;
-    bool _clientSocket; // true if client owns socket and should clean up
 
     uint64_t _bytesSent;
     uint64_t _bytesReceived;

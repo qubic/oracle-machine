@@ -88,8 +88,9 @@ std::vector<uint8_t> RequestHandler::handleQuery(
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
     }
 
-    // TODO: hack around, the OracleClient fetch data will take a long time here when pressing Ctrl+C
-    //return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
+    // TODO: hack around, the OracleClient fetch data will take a long time here when pressing
+    // Ctrl+C
+    // return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
 
     // Fetch data from Oracle
     std::cout << "[" << oracleID << "] fetching data ..." << std::endl;

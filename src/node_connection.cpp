@@ -86,6 +86,8 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
+    std::cout << "Respond to node " << session.getRemoteIP() << std::endl;
+
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
     RequestResponseHeader header;
@@ -111,54 +113,51 @@ bool NodeConnection::sendResponseToNode(
 // Main node's oracle message handling
 void NodeConnection::handleSession(Session& session)
 {
-    uint8_t buffer[0xFFFF];
+    std::vector<uint8_t> buffer(0xFFFF);
 
-    std::cout << "Handling Oracle protocol session from " << session.getRemoteIP() << std::endl;
+    std::cout << "New Node Session: " << session.getRemoteIP() << std::endl;
 
     while (session.isActive())
     {
         // Receive header
         RequestResponseHeader header;
+
+        // This will block until header is received, or TIMEOUT occurs (handled by Session)
         int received = session.receiveExact((uint8_t*)&header, sizeof(header));
+
         if (received != sizeof(header))
         {
-            std::cout << "Connection closed or error. Received header size " << received
-                      << std::endl;
+            // If 0, clean disconnect. If -1 or partial, error/timeout.
+            if (received < 0 || (received > 0 && received < (int)sizeof(header)))
+            {
+                std::cerr << "Node connection error or timeout (IP: " << session.getRemoteIP()
+                          << ")" << std::endl;
+            }
             break;
         }
 
-        // Validate header
+        // Validate Size
         unsigned int packet_size = header.size();
-        if (packet_size > sizeof(buffer) || packet_size < sizeof(header))
+        if (packet_size > buffer.size() || packet_size < sizeof(header))
         {
             std::cerr << "Invalid packet size: " << packet_size << std::endl;
             break;
         }
 
-        // Check if this is an OracleMachineQuery (type 190)
+        // ... Type checking logic (same as before) ...
         if (header.type() != OracleMachineQuery::type)
         {
-            // Skip this packet - not what we're expecting
-            int payload_size = packet_size - sizeof(header);
-            if (payload_size > 0)
-            {
-                received = session.receiveExact(buffer, payload_size);
-                if (received != payload_size)
-                {
-                    std::cerr << "Failed to receive payload while skipping (connection lost)"
-                              << std::endl;
-                    break;
-                }
-            }
-            std::cerr << "Unexpected message type: " << (int)header.type() << std::endl;
-            continue;
+            // Skipping logic ...
+            std::cerr << "Protocol violation: Unexpected type " << (int)header.type() << std::endl;
+            break;
         }
 
-        // Receive payload
+        // Receive Payload
         int payload_size = packet_size - sizeof(header);
         if (payload_size > 0)
         {
-            received = session.receiveExact(buffer, payload_size);
+            // recv remaining bytes
+            received = session.receiveExact(buffer.data(), payload_size);
             if (received != payload_size)
             {
                 std::cerr << "Failed to receive payload" << std::endl;
@@ -166,21 +165,19 @@ void NodeConnection::handleSession(Session& session)
             }
         }
 
-        // Handle request with user-provided handler
+        // Process Request
         if (_handler)
         {
-            // Get response
-            std::vector<uint8_t> response = _handler(header, buffer, payload_size);
+            // This calls RequestHandler -> OracleClient::fetch
+            // Since OracleClient now has timeouts, this line won't block forever!
+            std::vector<uint8_t> response = _handler(header, buffer.data(), payload_size);
 
-            std::cout << "Sending response with OracleMachineReply to " << session.getRemoteIP()
-                      << std::endl;
-
-            // Send response using Session abstraction
+            // Send Response
             sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());
         }
     }
 
-    std::cout << "Session finished for " << session.getRemoteIP() << std::endl;
+    std::cout << "Node Session finished: " << session.getRemoteIP() << std::endl;
 }
 
 } // namespace oracle

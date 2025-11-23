@@ -1,13 +1,13 @@
 #pragma once
 
 #include "network_messages/header.h"
+#include "oracle_client.h"
 #include "oracle_core/core_om_network_messages.h"
 #include "oracle_data.h"
-#include "oracle_client.h"
 
+#include <memory>
 #include <string>
 #include <vector>
-#include <memory>
 
 namespace oracle
 {

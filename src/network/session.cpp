@@ -19,24 +19,11 @@
 namespace oracle
 {
 
-// Server-side constructor (when accepting connections)
-Session::Session(int socket_fd, const std::string& remote_ip) :
-    _socketFD(socket_fd),
-    _remoteIP(remote_ip),
-    _remotePort(0),
-    _active(true),
-    _clientSocket(false),
-    _bytesSent(0),
-    _bytesReceived(0)
-{
-}
-
 Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port) :
     _socketFD(socket_fd),
     _remoteIP(remote_ip),
     _remotePort(remote_port),
     _active(socket_fd >= 0),
-    _clientSocket(true),
     _bytesSent(0),
     _bytesReceived(0)
 {
@@ -44,39 +31,108 @@ Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_po
 
 Session::~Session()
 {
-    if (_clientSocket && _socketFD >= 0)
+    close();
+}
+
+// Move Constructor
+Session::Session(Session&& other) noexcept :
+    _socketFD(other._socketFD),
+    _remoteIP(std::move(other._remoteIP)),
+    _remotePort(other._remotePort),
+    _active(other._active.load()),
+    _bytesSent(other._bytesSent),
+    _bytesReceived(other._bytesReceived)
+{
+    // Invalidate source
+    other._socketFD = -1;
+    other._active.store(false);
+}
+
+// Move Assignment
+Session& Session::operator=(Session&& other) noexcept
+{
+    if (this != &other)
     {
-        this->close();
+        // Close current resource
+        close();
+
+        // Steal resources
+        _socketFD = other._socketFD;
+        _remoteIP = std::move(other._remoteIP);
+        _remotePort = other._remotePort;
+        _active.store(other._active.load());
+        _bytesSent = other._bytesSent;
+        _bytesReceived = other._bytesReceived;
+
+        // Invalidate source
+        other._socketFD = -1;
+        other._active.store(false);
     }
+    return *this;
 }
 
 void Session::close()
 {
-    if (_socketFD >= 0 && _active)
+    if (_socketFD >= 0)
     {
-        shutdown(_socketFD, SHUT_RDWR);
-        ::close(_socketFD);
-        _active = false;
+        // Only attempt shutdown if we consider the connection active
+        // otherwise it might be already broken
+        if (_active.load())
+        {
+            shutdown(_socketFD, SHUT_RDWR);
+        }
 
-        std::cout << "Session closed: " << _remoteIP << ":" << _remotePort
-                  << " (sent: " << _bytesSent << " bytes, "
-                  << "received: " << _bytesReceived << " bytes)" << std::endl;
+        ::close(_socketFD);
+
+        std::cout << "Session closed: " << _remoteIP << ":" << _remotePort << " [FD:" << _socketFD
+                  << "]" << std::endl;
+
+        _socketFD = -1;
+        _active.store(false);
     }
 }
 
+bool Session::setTimeout(uint32_t timeout_ms)
+{
+    if (_socketFD < 0)
+        return false;
+
+#ifdef _MSC_VER
+    DWORD timeout = timeout_ms;
+    int ret_recv =
+        setsockopt(_socketFD, SOL_SOCKET, SO_RCVTIMEO, (const char*)&timeout, sizeof(timeout));
+    int ret_send =
+        setsockopt(_socketFD, SOL_SOCKET, SO_SNDTIMEO, (const char*)&timeout, sizeof(timeout));
+#else
+    struct timeval tv;
+    tv.tv_sec = timeout_ms / 1000;
+    tv.tv_usec = (timeout_ms % 1000) * 1000;
+    int ret_recv = setsockopt(_socketFD, SOL_SOCKET, SO_RCVTIMEO, (const void*)&tv, sizeof(tv));
+    int ret_send = setsockopt(_socketFD, SOL_SOCKET, SO_SNDTIMEO, (const void*)&tv, sizeof(tv));
+#endif
+
+    return (ret_recv == 0 && ret_send == 0);
+}
 
 bool Session::sendData(const uint8_t* data, int size)
 {
-    if (!_active || size <= 0 || data == nullptr)
+    if (!_active || size <= 0 || data == nullptr || _socketFD < 0)
         return false;
 
     int total_sent = 0;
     while (total_sent < size)
     {
-        int sent = send(_socketFD, (const char*)data + total_sent, size - total_sent, 0);
+        // On Linux/Mac, standard send() can trigger SIGPIPE if socket is closed.
+        // pass MSG_NOSIGNAL to prevent app crash. Windows ignores this flag.
+#ifdef _MSC_VER
+        int flags = 0;
+#else
+        int flags = MSG_NOSIGNAL;
+#endif
+        int sent = send(_socketFD, (const char*)data + total_sent, size - total_sent, flags);
         if (sent <= 0)
         {
-            _active = false;
+            _active.store(false);
             return false;
         }
         total_sent += sent;
@@ -87,7 +143,7 @@ bool Session::sendData(const uint8_t* data, int size)
 
 int Session::receiveExact(uint8_t* buffer, int sz)
 {
-    if (!_active)
+    if (!_active || _socketFD < 0)
         return 0;
 
     int total_received = 0;
@@ -96,7 +152,8 @@ int Session::receiveExact(uint8_t* buffer, int sz)
         int received = recv(_socketFD, (char*)buffer + total_received, sz, 0);
         if (received <= 0)
         {
-            _active = false;
+            // 0 = Graceful close, -1 = Error (or timeout)
+            _active.store(false);
             break;
         }
         total_received += received;
@@ -108,13 +165,13 @@ int Session::receiveExact(uint8_t* buffer, int sz)
 
 int Session::receive(uint8_t* buffer, int sz)
 {
-    if (!_active)
+    if (!_active || _socketFD < 0)
         return 0;
 
     int received = recv(_socketFD, (char*)buffer, sz, 0);
     if (received <= 0)
     {
-        _active = false;
+        _active.store(false);
         return 0;
     }
 
@@ -124,12 +181,26 @@ int Session::receive(uint8_t* buffer, int sz)
 
 void Session::forceShutdown()
 {
-    if (_socketFD >= 0 && _active)
+    // Simply shutdown logic, close() will be called by owner or destructor
+    if (_socketFD >= 0 && _active.load())
     {
-        shutdown(_socketFD, SHUT_RDWR);  // Unblocks recv()
-        _active.store(false);                  // Mark as inactive
+        shutdown(_socketFD, SHUT_RDWR); // this will unblock recv()/send()
+        _active.store(false);
     }
 }
 
+bool Session::setKeepAlive(bool enable)
+{
+    if (_socketFD < 0)
+        return false;
+
+    int opt = enable ? 1 : 0;
+    int result = setsockopt(_socketFD, SOL_SOCKET, SO_KEEPALIVE, (const char*)&opt, sizeof(opt));
+
+    if (result < 0)
+        return false;
+
+    return true;
+}
 
 } // namespace oracle

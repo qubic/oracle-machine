@@ -125,10 +125,15 @@ void TcpServer::cleanupFinishedThreads()
     auto it = _clientThreads.begin();
     while (it != _clientThreads.end())
     {
-        if (!it->joinable()) // Thread finished
+        if (it->joinable())
+        {
+            it->join();
             it = _clientThreads.erase(it);
+        }
         else
+        {
             ++it;
+        }
     }
 }
 
@@ -277,17 +282,20 @@ void TcpServer::acceptLoop()
 
 void TcpServer::clientThread(int client_fd, const std::string& client_ip)
 {
-    // Create Session object
-    Session session(client_fd, client_ip);
+    // Create Session object (It takes ownership of client_fd)
+    Session session(client_fd, client_ip, 0);
 
-    // Handle the session (virtual method - can be overridden)
+    // The thread will now wait forever for the Node to send data.
+    session.setTimeout(0); 
+    
+    // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
+    session.setKeepAlive(true);
+
+    // Handle the session
     handleSession(session);
 
     // Cleanup - remove from active list
     removeClientFD(client_fd);
-
-    // Close the socket
-    close(client_fd);
 
     std::cout << "Client disconnected from " << client_ip << std::endl;
 }
