@@ -10,6 +10,7 @@ typedef int socklen_t;
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <sys/poll.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -65,6 +66,17 @@ bool TcpServer::start()
     int opt = 1;
     setsockopt(_serverFD, SOL_SOCKET, SO_REUSEADDR, (const char*)&opt, sizeof(opt));
 
+#ifndef _MSC_VER
+    // SO_REUSEPORT helps on Linux/Unix systems for faster rebinding
+    setsockopt(_serverFD, SOL_SOCKET, SO_REUSEPORT, (const char*)&opt, sizeof(opt));
+#endif
+
+    // Set SO_LINGER to close immediately without TIME_WAIT
+    linger sl;
+    sl.l_onoff = 1;  // Enable linger
+    sl.l_linger = 0; // Timeout = 0 (close immediately, send RST)
+    setsockopt(_serverFD, SOL_SOCKET, SO_LINGER, (const char*)&sl, sizeof(sl));
+
     // Bind
     struct sockaddr_in addr;
     memset(&addr, 0, sizeof(addr));
@@ -113,7 +125,7 @@ void TcpServer::cleanupFinishedThreads()
     auto it = _clientThreads.begin();
     while (it != _clientThreads.end())
     {
-        if (!it->joinable())  // Thread finished
+        if (!it->joinable()) // Thread finished
             it = _clientThreads.erase(it);
         else
             ++it;
@@ -138,7 +150,6 @@ void TcpServer::stop()
     if (_serverFD >= 0)
     {
         std::cout << "Closing server socket..." << std::endl;
-        shutdown(_serverFD, SHUT_RDWR);
         close(_serverFD);
         _serverFD = -1;
     }
@@ -191,10 +202,43 @@ void TcpServer::acceptLoop()
 {
     while (!_stopRequested)
     {
-        struct sockaddr_in client_addr;
+#ifdef _MSC_VER
+        // Windows: select()
+        fd_set readfds;
+        FD_ZERO(&readfds);
+        FD_SET(_serverFD, &readfds);
+
+        struct timeval timeout;
+        timeout.tv_sec = 0;
+        timeout.tv_usec = 500000;
+
+        int result = select(_serverFD + 1, &readfds, NULL, NULL, &timeout);
+#else
+        // Linux: poll()
+        pollfd pfd;
+        pfd.fd = _serverFD;
+        pfd.events = POLLIN;
+        pfd.revents = 0;
+
+        int result = poll(&pfd, 1, 500); // 500ms
+#endif
+
+        if (result < 0)
+        {
+            // Error
+            continue;
+        }
+        else if (result == 0)
+        {
+            // Timeout - check _stopRequested and continue
+            continue;
+        }
+
+        // Socket is ready for accept
+        sockaddr_in client_addr;
         socklen_t client_len = sizeof(client_addr);
 
-        int client_fd = accept(_serverFD, (struct sockaddr*)&client_addr, &client_len);
+        int client_fd = accept(_serverFD, (sockaddr*)&client_addr, &client_len);
         if (client_fd < 0)
         {
             if (_stopRequested)
