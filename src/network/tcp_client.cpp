@@ -101,7 +101,7 @@ std::unique_ptr<Session> TcpClient::connect(
     // Modern DNS resolution (Thread-safe & IPv6 compatible)
     if ((status = getaddrinfo(host.c_str(), port_str, &hints, &res)) != 0)
     {
-        LOG_ERROR() << "getaddrinfo failed: " << gai_strerror(status) << std::endl;
+        OM_LOG_ERROR() << "getaddrinfo failed: " << gai_strerror(status) << std::endl;
         return nullptr;
     }
 
@@ -148,7 +148,7 @@ std::unique_ptr<Session> TcpClient::connect(
 
     if (sock_fd < 0)
     {
-        LOG_ERROR() << "Failed to connect to " << host << ":" << port << std::endl;
+        OM_LOG_ERROR() << "Failed to connect to " << host << ":" << port << std::endl;
         return nullptr;
     }
 

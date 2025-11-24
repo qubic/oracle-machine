@@ -87,7 +87,7 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    LOG_INFO() << "Respond to node " << session.getRemoteIP();
+    OM_LOG_INFO() << "Respond to node " << session.getRemoteIP();
 
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
@@ -116,7 +116,7 @@ void NodeConnection::handleSession(Session& session)
 {
     std::vector<uint8_t> buffer(0xFFFF);
 
-    LOG_INFO() << "New Node Session: " << session.getRemoteIP();
+    OM_LOG_INFO() << "New Node Session: " << session.getRemoteIP();
 
     while (session.isActive())
     {
@@ -131,7 +131,7 @@ void NodeConnection::handleSession(Session& session)
             // If 0, clean disconnect. If -1 or partial, error/timeout.
             if (received < 0 || (received > 0 && received < (int)sizeof(header)))
             {
-                LOG_ERROR() << "Node connection error or timeout (IP: " << session.getRemoteIP()
+                OM_LOG_ERROR() << "Node connection error or timeout (IP: " << session.getRemoteIP()
                           << ")";
             }
             break;
@@ -141,16 +141,15 @@ void NodeConnection::handleSession(Session& session)
         unsigned int packet_size = header.size();
         if (packet_size > buffer.size() || packet_size < sizeof(header))
         {
-            LOG_ERROR() << "Invalid packet size: " << packet_size;
+            OM_LOG_ERROR() << "Invalid packet size: " << packet_size;
             break;
         }
 
-        // ... Type checking logic (same as before) ...
+        // Check if this is an OracleMachineQuery
         if (header.type() != OracleMachineQuery::type)
         {
-            // Skipping logic ...
-            LOG_ERROR() << "Protocol violation: Unexpected type " << (int)header.type();
-            break;
+            // Skipping unknown message types
+            continue;
         }
 
         // Receive Payload
@@ -161,7 +160,7 @@ void NodeConnection::handleSession(Session& session)
             received = session.receiveExact(buffer.data(), payload_size);
             if (received != payload_size)
             {
-                LOG_ERROR() << "Failed to receive payload";
+                OM_LOG_ERROR() << "Failed to receive payload";
                 break;
             }
         }
@@ -174,11 +173,16 @@ void NodeConnection::handleSession(Session& session)
             std::vector<uint8_t> response = _handler(header, buffer.data(), payload_size);
 
             // Send Response
-            sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());
+            if (!response.empty())
+            {
+                sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());
+            }
         }
+
+        // TODO: sleep or yield to avoid busy loop ?
     }
 
-    LOG_INFO() << "Node Session finished: " << session.getRemoteIP();
+    OM_LOG_INFO() << "Node Session finished: " << session.getRemoteIP();
 }
 
 } // namespace oracle

@@ -1,9 +1,9 @@
 #include "oracle_machine.h"
 #include "config.h"
 #include "node_connection.h"
-#include "oracle_client.h"
 #include "request_handler.h"
 #include "logger.h"
+#include "interface_client.h"
 
 #include <csignal>
 #include <iostream>
@@ -35,13 +35,13 @@ public:
     // Initialize the oracle machine
     bool initialize()
     {
-        LOG_INFO() << "Initializing Oracle Machine...";
+        OM_LOG_INFO() << "Initializing Oracle Machine...";
 
         // Setup signal handlers
         signal(SIGINT, signal_handler);
         signal(SIGTERM, signal_handler);
 
-        _handler = std::make_unique<RequestHandler>(_oracleClients);
+        _handler = std::make_unique<RequestHandler>(_interfaceClients);
 
         // Connection to nodes
         _nodeConnectionServer = std::make_unique<NodeConnection>(OC_SERVER_BIND, OM_SERVER_PORT);
@@ -50,7 +50,7 @@ public:
                 return _handler->handle(header, payload, size);
             });
 
-        setupOracles();
+        setupInterfaceClients();
 
         return true;
     }
@@ -62,17 +62,17 @@ public:
         if (_running.load())
             return true;
 
-        LOG_INFO() << "Starting Oracle Machine...";
+        OM_LOG_INFO() << "Starting Oracle Machine...";
 
         // Start Node Connection Server
         if (!_nodeConnectionServer->start())
         {
-            LOG_ERROR() << "Failed to start node connection";
+            OM_LOG_ERROR() << "Failed to start node connection";
             return false;
         }
         
-        // Start all OracleClients
-        for (auto& pair : _oracleClients)
+        // Start all InterfaceClients
+        for (auto& pair : _interfaceClients)
         {
             pair.second->start();
         }
@@ -80,7 +80,7 @@ public:
         _running.store(true);
         _shutdownRequested.store(false);
 
-        LOG_INFO() << "Oracle Machine started listening at port " << OM_SERVER_PORT;
+        OM_LOG_INFO() << "Oracle Machine started listening at port " << OM_SERVER_PORT;
 
         return true;
     }
@@ -91,7 +91,7 @@ public:
         if (!_running.load())
             return;
 
-        LOG_INFO() << "Stopping Oracle Machine...";
+        OM_LOG_INFO() << "Stopping Oracle Machine...";
 
         _shutdownRequested.store(true);
 
@@ -102,15 +102,15 @@ public:
             _nodeConnectionServer->stop();
         }
 
-        // Unblock any OracleClients waiting on network I/O
+        // Unblock any InterfaceClients waiting on network I/O
         // This breaks the deadlock if a fetch() is stuck in recv()
-        for (auto& pair : _oracleClients)
+        for (auto& pair : _interfaceClients)
         {
             pair.second->stop();
         }
 
         _running.store(false);
-        LOG_INFO() << "Oracle Machine stopped.";
+        OM_LOG_INFO() << "Oracle Machine stopped.";
     }
 
     // Check if running
@@ -126,19 +126,19 @@ public:
         stop();
     }
 
-    int setupOracles()
+    int setupInterfaceClients()
     {
-        for (size_t i = 0; i < ORACLE_COUNT; i++)
+        for (size_t i = 0; i < ORACLE_INTERFACES_COUNT; i++)
         {
-            const auto& endpoint = ORACLE_LIST[i];
+            const auto& endpoint = INTERFACE_ENDPOINTS[i];
 
-            auto client = std::make_unique<OracleClient>(
-                endpoint.id, endpoint.name, endpoint.host, endpoint.port);
+            auto client = std::make_unique<InterfaceClient>(
+                endpoint.interfaceIndex, endpoint.serviceHost, endpoint.servicePort);
 
-            LOG_INFO() << "  - " << endpoint.name << " (" << endpoint.id << ") at " << endpoint.host
-                      << ":" << endpoint.port;
+            OM_LOG_INFO() << "  - " << endpoint.interfaceIndex << " (" << endpoint.interfaceName << ") at " << endpoint.serviceHost
+                      << ":" << endpoint.servicePort;
 
-            _oracleClients[endpoint.id] = std::move(client);
+            _interfaceClients[endpoint.interfaceIndex] = std::move(client);
         }
         return 0;
     }
@@ -148,7 +148,7 @@ private:
     std::atomic<bool> _shutdownRequested;
 
     std::unique_ptr<NodeConnection> _nodeConnectionServer;
-    std::map<std::string, std::unique_ptr<OracleClient>> _oracleClients;
+    std::map<uint32_t, std::unique_ptr<InterfaceClient>> _interfaceClients;
     std::unique_ptr<RequestHandler> _handler;
 };
 

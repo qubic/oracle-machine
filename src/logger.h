@@ -59,10 +59,10 @@ private:
 } // namespace Logger
 
 // Macros — lightweight wrapper
-#define LOG_DEBUG() Logger::LogStream(Logger::Level::DEBUG, NULL, 0)
-#define LOG_INFO() Logger::LogStream(Logger::Level::INFO, NULL, 0)
-#define LOG_WARNING() Logger::LogStream(Logger::Level::WARNING, NULL, 0)
-#define LOG_ERROR() Logger::LogStream(Logger::Level::ERROR, __FILE__, __LINE__)
+#define OM_LOG_DEBUG() Logger::LogStream(Logger::Level::DEBUG, NULL, 0)
+#define OM_LOG_INFO() Logger::LogStream(Logger::Level::INFO, NULL, 0)
+#define OM_LOG_WARNING() Logger::LogStream(Logger::Level::WARNING, NULL, 0)
+#define OM_LOG_ERROR() Logger::LogStream(Logger::Level::ERROR, __FILE__, __LINE__)
 
 #else
 
@@ -81,9 +81,9 @@ inline void shutdown() {}
 inline void setLevel(Level) {}
 } // namespace Logger
 
-#define LOG_DEBUG()
-#define LOG_INFO()
-#define LOG_WARNING()
-#define LOG_ERROR()
+#define OM_LOG_DEBUG()
+#define OM_LOG_INFO()
+#define OM_LOG_WARNING()
+#define OM_LOG_ERROR()
 
 #endif

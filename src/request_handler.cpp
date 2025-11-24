@@ -1,6 +1,7 @@
 #include "request_handler.h"
-#include "oracle_client.h"
 #include "logger.h"
+
+#include "qpi_adapter.h"
 
 #include <cstring>
 #include <iostream>
@@ -8,124 +9,105 @@
 namespace oracle
 {
 
-RequestHandler::RequestHandler(std::map<std::string, std::unique_ptr<OracleClient>>& clients) :
-    _clients(clients)
+RequestHandler::RequestHandler(
+    std::map<uint32_t, std::unique_ptr<InterfaceClient>>& clients) :
+    _interfaceClients(clients)
 {
 }
 
 std::vector<uint8_t> RequestHandler::handle(
     const RequestResponseHeader& header,
     const uint8_t* payload,
-    int payload_size)
+    int payloadSize)
 {
     // Verify this is an OracleMachineQuery
     if (header.type() != OracleMachineQuery::type)
     {
-        return makeErrorResponse(0, ORACLE_QUERY_STATUS_UNKNOWN);
+        OM_LOG_ERROR() << "RequestHandler: Unknown request type " << (int)header.type();
+        return std::vector<uint8_t>(); // Empty response for unknown types
     }
 
     // Check minimum payload size for OracleMachineQuery
-    if (payload_size < (int)sizeof(OracleMachineQuery))
+    if (payloadSize < (int)sizeof(OracleMachineQuery))
     {
-        return makeErrorResponse(0, ORACLE_QUERY_STATUS_UNKNOWN);
+        OM_LOG_ERROR() << "RequestHandler: Payload size mismatched " << payloadSize
+                  << " (expected at least " << sizeof(OracleMachineQuery) << ")";
+        return std::vector<uint8_t>();
     }
 
     // Parse the query
     OracleMachineQuery query;
     memcpy(&query, payload, sizeof(query));
 
-    // Get any additional query data after the OracleMachineQuery struct
-    const uint8_t* query_data = payload + sizeof(OracleMachineQuery);
-    int query_data_size = payload_size - sizeof(OracleMachineQuery);
+    // Get any additional query data after the OracleMachineQuery
+    const uint8_t* queryData = payload + sizeof(OracleMachineQuery);
+    int queryDataSize = payloadSize - sizeof(OracleMachineQuery);
 
-    return handleQuery(query, query_data, query_data_size);
+    return handleQuery(query, queryData, queryDataSize);
 }
 
-// TODO: verify the return value and error handling
 std::vector<uint8_t> RequestHandler::handleQuery(
     const OracleMachineQuery& query,
-    const uint8_t* query_data,
-    int query_data_size)
+    const uint8_t* queryData,
+    int queryDataSize)
 {
-    LOG_INFO() << "OracleMachineQuery:"
+    OM_LOG_DEBUG() << "OracleMachineQuery:"
               << " - oracleInterfaceIndex: " << query.oracleInterfaceIndex
-              << " - type: " << (int)query.type 
               << " - oracleQueryId: " << query.oracleQueryId
               << " - timeoutInSeconds: " << query.timeoutInSeconds;
-
-    // Find oracle by interface index or by oracle_id in query data
-    std::string oracleID;
-
-    // If oracle_id was passed as query data, use that
-    if (query_data_size > 0 && query_data_size <= 32)
+    
+    // Route to appropriate oracle interface handler
+    if (query.oracleInterfaceIndex == OI::Price::oracleInterfaceIndex)
     {
-        char idBuffer[33];
-        memset(idBuffer, 0, sizeof(idBuffer));
-        memcpy(idBuffer, query_data, query_data_size);
-        oracleID = idBuffer;
+        return handlePriceQuery(query, queryData, queryDataSize);
     }
-    else
+    
+    // Unknown oracle interface
+    OM_LOG_ERROR() << "Unsupported oracle interface index: " << query.oracleInterfaceIndex;
+    return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ARG);
+}
+
+std::vector<uint8_t> RequestHandler::handlePriceQuery(
+    const OracleMachineQuery& query,
+    const uint8_t* queryData,
+    int queryDataSize)
+{
+    // Find interface client for this interface type
+    auto it = _interfaceClients.find(query.oracleInterfaceIndex);
+    if (it == _interfaceClients.end())
     {
-        // Get oracle_id by interface index
-        unsigned int index = 0;
-        for (const auto& pair : _clients)
-        {
-            if (index == query.oracleInterfaceIndex)
-            {
-                oracleID = pair.first;
-                break;
-            }
-            index++;
-        }
+        OM_LOG_ERROR() << "Interface client not found for index: " << query.oracleInterfaceIndex;
+        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ARG);
     }
-
-    if (oracleID.empty())
+    
+    OM_LOG_DEBUG() << "Routing query to InterfaceClient[" << query.oracleInterfaceIndex << "]";
+    
+    // Send full query to interface client
+    // For Price interface: queryData contains Price::OracleQuery (104 bytes)
+    // Reply will be Price::OracleReply (16 bytes)
+    // TODO: consider mutiple requests, currently for simplicity only single request is supported
+    // and it is a blocking wait for the reply. In the future we may want to support async requests.
+    std::vector<uint8_t> replyData(16);  // Price::OracleReply size
+    
+    // TODO: timeout need to recalculated base in time received in OM?
+    int timeout_ms = query.timeoutInSeconds * 1000;
+    if (!it->second->query(
+            queryData, queryDataSize,
+            replyData.data(), replyData.size(),
+            timeout_ms))
     {
-        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
+        OM_LOG_ERROR() << "Query to InterfaceClient[" << query.oracleInterfaceIndex << "] failed";
+        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_TIMEOUT);
     }
-
-    // Find the client
-    auto it = _clients.find(oracleID);
-    if (it == _clients.end())
-    {
-        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
-    }
-
-    // TODO: hack around, the OracleClient fetch data will take a long time here when pressing
-    // Ctrl+C
-    // return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
-
-    // Fetch data from Oracle
-    LOG_INFO() << "[" << oracleID << "] fetching data ...";
-    OracleData data;
-    if (!it->second->fetch(data))
-    {
-        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
-    }
-
-    if (!data.valid)
-    {
-        return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
-    }
-
-    LOG_INFO() << "[" << oracleID << "] Fetched on-demand: value=" << data.value
-              << ", timestamp=" << data.timestamp;
-
-    // Build reply data: oracle_id (32 bytes) + value (8 bytes) + timestamp (8 bytes)
-    uint8_t reply_data[48];
-    memset(reply_data, 0, sizeof(reply_data));
-
-    // Copy oracle_id (32 bytes)
-    strncpy((char*)reply_data, data.oracleId.c_str(), 31);
-
-    // Copy value (8 bytes, double)
-    memcpy(reply_data + 32, &data.value, sizeof(double));
-
-    // Copy timestamp (8 bytes, int64_t)
-    memcpy(reply_data + 40, &data.timestamp, sizeof(int64_t));
-
+    
+    OM_LOG_DEBUG() << "InterfaceClient[" << query.oracleInterfaceIndex << "] query successful";
+    
+    // Return success response with reply data
     return makeResponse(
-        query.oracleQueryId, ORACLE_FLAG_REPLY_RECEIVED, reply_data, sizeof(reply_data));
+        query.oracleQueryId,
+        ORACLE_FLAG_REPLY_RECEIVED,
+        replyData.data(),
+        replyData.size());
 }
 
 std::vector<uint8_t> RequestHandler::makeResponse(
@@ -144,17 +126,17 @@ std::vector<uint8_t> RequestHandler::makeResponse(
 
     memcpy(result.data(), &reply, sizeof(reply));
 
-    if (data_size > 0 && data != nullptr)
+    if (data && data_size > 0)
     {
-        memcpy(result.data() + sizeof(OracleMachineReply), data, data_size);
+        memcpy(result.data() + sizeof(reply), data, data_size);
     }
 
     return result;
 }
 
-std::vector<uint8_t> RequestHandler::makeErrorResponse(uint64_t query_id, uint16_t error_flags)
+std::vector<uint8_t> RequestHandler::makeErrorResponse(uint64_t queryID, uint16_t errorFlags)
 {
-    return makeResponse(query_id, error_flags, nullptr, 0);
+    return makeResponse(queryID, errorFlags, nullptr, 0);
 }
 
 } // namespace oracle

@@ -43,10 +43,7 @@ public:
     void stop();
     bool isRunning() const { return _running; }
 
-protected:
-    // Override this for custom protocol handling
-    // Default implementation calls the SessionHandler callback
-    virtual void handleSession(Session& session);
+    void handleSession(Session& session);
 
 private:
     void acceptLoop();

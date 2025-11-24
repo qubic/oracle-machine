@@ -10,7 +10,7 @@ set(OM_NETWORK_SOURCES
 set(OM_SOURCES
     main.cpp
     oracle_machine.cpp
-    oracle_client.cpp
+    interface_client.cpp
     node_connection.cpp
     request_handler.cpp
     oracle_data.cpp
@@ -20,10 +20,11 @@ set(OM_SOURCES
 
 add_executable(oracle_machine ${OM_SOURCES})
 
-target_compile_definitions(oracle_machine
-    PUBLIC
-        NETWORK_MESSAGES_WITHOUT_CORE_DEPENDENCIES=1
-)
+# target_compile_definitions(oracle_machine
+#     PUBLIC
+#         #NETWORK_MESSAGES_WITHOUT_CORE_DEPENDENCIES=1
+#         NO_UEFI=1
+# )
 
 target_link_libraries(oracle_machine
     PRIVATE
@@ -38,8 +39,9 @@ target_include_directories(oracle_machine
 )
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
-    target_compile_options(oracle_machine PRIVATE -mrdrnd)
+    target_compile_options(oracle_machine PRIVATE -mrdrnd -mavx2 -fpermissive)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    target_compile_options(oracle_machine PRIVATE /arch:AVX2)
     # Windows needs the Winsock library
     target_link_libraries(oracle_machine PRIVATE ws2_32)
 else()
