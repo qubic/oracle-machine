@@ -4,6 +4,7 @@
 #include "network/session.h"
 #include "network/tcp_server.h"
 #include "oracle_core/core_om_network_messages.h"
+#include "logger.h"
 
 #ifdef _MSC_VER
 #include <Winsock2.h>
@@ -86,7 +87,7 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    std::cout << "Respond to node " << session.getRemoteIP() << std::endl;
+    LOG_INFO() << "Respond to node " << session.getRemoteIP();
 
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
@@ -115,7 +116,7 @@ void NodeConnection::handleSession(Session& session)
 {
     std::vector<uint8_t> buffer(0xFFFF);
 
-    std::cout << "New Node Session: " << session.getRemoteIP() << std::endl;
+    LOG_INFO() << "New Node Session: " << session.getRemoteIP();
 
     while (session.isActive())
     {
@@ -130,8 +131,8 @@ void NodeConnection::handleSession(Session& session)
             // If 0, clean disconnect. If -1 or partial, error/timeout.
             if (received < 0 || (received > 0 && received < (int)sizeof(header)))
             {
-                std::cerr << "Node connection error or timeout (IP: " << session.getRemoteIP()
-                          << ")" << std::endl;
+                LOG_ERROR() << "Node connection error or timeout (IP: " << session.getRemoteIP()
+                          << ")";
             }
             break;
         }
@@ -140,7 +141,7 @@ void NodeConnection::handleSession(Session& session)
         unsigned int packet_size = header.size();
         if (packet_size > buffer.size() || packet_size < sizeof(header))
         {
-            std::cerr << "Invalid packet size: " << packet_size << std::endl;
+            LOG_ERROR() << "Invalid packet size: " << packet_size;
             break;
         }
 
@@ -148,7 +149,7 @@ void NodeConnection::handleSession(Session& session)
         if (header.type() != OracleMachineQuery::type)
         {
             // Skipping logic ...
-            std::cerr << "Protocol violation: Unexpected type " << (int)header.type() << std::endl;
+            LOG_ERROR() << "Protocol violation: Unexpected type " << (int)header.type();
             break;
         }
 
@@ -160,7 +161,7 @@ void NodeConnection::handleSession(Session& session)
             received = session.receiveExact(buffer.data(), payload_size);
             if (received != payload_size)
             {
-                std::cerr << "Failed to receive payload" << std::endl;
+                LOG_ERROR() << "Failed to receive payload";
                 break;
             }
         }
@@ -177,7 +178,7 @@ void NodeConnection::handleSession(Session& session)
         }
     }
 
-    std::cout << "Node Session finished: " << session.getRemoteIP() << std::endl;
+    LOG_INFO() << "Node Session finished: " << session.getRemoteIP();
 }
 
 } // namespace oracle

@@ -25,7 +25,7 @@ public:
     // Destructor (closes socket)
     ~Session();
 
-    // Delete Copy (Prevent double-close of same FD)
+    // Non-copyable (Prevent double-close of same FD)
     Session(const Session&) = delete;
     Session& operator=(const Session&) = delete;
 

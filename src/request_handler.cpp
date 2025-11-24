@@ -1,5 +1,7 @@
 #include "request_handler.h"
 #include "oracle_client.h"
+#include "logger.h"
+
 #include <cstring>
 #include <iostream>
 
@@ -45,10 +47,11 @@ std::vector<uint8_t> RequestHandler::handleQuery(
     const uint8_t* query_data,
     int query_data_size)
 {
-    std::cout << "OracleMachineQuery:"
+    LOG_INFO() << "OracleMachineQuery:"
               << " - oracleInterfaceIndex: " << query.oracleInterfaceIndex
-              << " - type: " << query.type << " - oracleQueryId: " << query.oracleQueryId
-              << " - timeoutInSeconds: " << query.timeoutInSeconds << std::endl;
+              << " - type: " << (int)query.type 
+              << " - oracleQueryId: " << query.oracleQueryId
+              << " - timeoutInSeconds: " << query.timeoutInSeconds;
 
     // Find oracle by interface index or by oracle_id in query data
     std::string oracleID;
@@ -93,7 +96,7 @@ std::vector<uint8_t> RequestHandler::handleQuery(
     // return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
 
     // Fetch data from Oracle
-    std::cout << "[" << oracleID << "] fetching data ..." << std::endl;
+    LOG_INFO() << "[" << oracleID << "] fetching data ...";
     OracleData data;
     if (!it->second->fetch(data))
     {
@@ -105,8 +108,8 @@ std::vector<uint8_t> RequestHandler::handleQuery(
         return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
     }
 
-    std::cout << "[" << oracleID << "] Fetched on-demand: value=" << data.value
-              << ", timestamp=" << data.timestamp << std::endl;
+    LOG_INFO() << "[" << oracleID << "] Fetched on-demand: value=" << data.value
+              << ", timestamp=" << data.timestamp;
 
     // Build reply data: oracle_id (32 bytes) + value (8 bytes) + timestamp (8 bytes)
     uint8_t reply_data[48];

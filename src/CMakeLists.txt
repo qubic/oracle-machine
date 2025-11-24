@@ -32,6 +32,7 @@ target_link_libraries(oracle_machine
 
 target_include_directories(oracle_machine
     PRIVATE
+        ${CMAKE_SOURCE_DIR}/src
         ${CMAKE_SOURCE_DIR}/submodules/qubic_core/src
         ${CMAKE_SOURCE_DIR}/submodules/qubic_core
 )

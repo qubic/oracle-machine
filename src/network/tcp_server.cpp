@@ -1,4 +1,5 @@
 #include "tcp_server.h"
+#include "logger.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
@@ -58,7 +59,7 @@ bool TcpServer::start()
     _serverFD = socket(AF_INET, SOCK_STREAM, 0);
     if (_serverFD < 0)
     {
-        std::cerr << "Failed to create server socket" << std::endl;
+        LOG_ERROR() << "Failed to create server socket" ;
         return false;
     }
 
@@ -94,7 +95,7 @@ bool TcpServer::start()
 
     if (bind(_serverFD, (struct sockaddr*)&addr, sizeof(addr)) < 0)
     {
-        std::cerr << "Failed to bind to " << _bindAddress << ":" << _port << std::endl;
+        LOG_ERROR() << "Failed to bind to " << _bindAddress << ":" << _port ;
         close(_serverFD);
         _serverFD = -1;
         return false;
@@ -103,7 +104,7 @@ bool TcpServer::start()
     // Listen
     if (listen(_serverFD, 10) < 0)
     {
-        std::cerr << "Failed to listen" << std::endl;
+        LOG_ERROR() << "Failed to listen" ;
         close(_serverFD);
         _serverFD = -1;
         return false;
@@ -115,7 +116,7 @@ bool TcpServer::start()
     // Laucnh accept thread and handle this connection by different thread
     _acceptThread = std::thread(&TcpServer::acceptLoop, this);
 
-    std::cout << "TCP Server listening on " << _bindAddress << ":" << _port << std::endl;
+    LOG_INFO() << "TCP Server listening on " << _bindAddress << ":" << _port ;
     return true;
 }
 
@@ -147,14 +148,14 @@ void TcpServer::stop()
     if (!_running)
         return;
 
-    std::cout << "Initiating server shutdown..." << std::endl;
+    LOG_INFO() << "Initiating server shutdown..." ;
 
     _stopRequested = true;
 
     // Close server socket first to stop accepting new connections
     if (_serverFD >= 0)
     {
-        std::cout << "Closing server socket..." << std::endl;
+        LOG_INFO() << "Closing server socket..." ;
         close(_serverFD);
         _serverFD = -1;
     }
@@ -162,14 +163,14 @@ void TcpServer::stop()
     // Wait for accept thread to exit
     if (_acceptThread.joinable())
     {
-        std::cout << "Waiting for accept thread..." << std::endl;
+        LOG_INFO() << "Waiting for accept thread..." ;
         _acceptThread.join();
     }
 
     // Close all active client sockets to unblock recv() calls
     {
         std::lock_guard<std::mutex> lock(_clientFDsMutex);
-        std::cout << "Closing " << _activeClientFDs.size() << " active connections..." << std::endl;
+        LOG_INFO() << "Closing " << _activeClientFDs.size() << " active connections..." ;
         for (int client_fd : _activeClientFDs)
         {
             if (client_fd >= 0)
@@ -182,7 +183,7 @@ void TcpServer::stop()
     // Wait for all client threads cleanup
     {
         std::lock_guard<std::mutex> lock(_threadsMutex);
-        std::cout << "Waiting for " << _clientThreads.size() << " client threads..." << std::endl;
+        LOG_INFO() << "Waiting for " << _clientThreads.size() << " client threads..." ;
         for (auto& t : _clientThreads)
         {
             if (t.joinable())
@@ -200,7 +201,7 @@ void TcpServer::stop()
 
     _running = false;
 
-    std::cout << "Server shutdown complete" << std::endl;
+    LOG_INFO() << "Server shutdown complete" ;
 }
 
 void TcpServer::acceptLoop()
@@ -258,12 +259,12 @@ void TcpServer::acceptLoop()
         // Check connection filter if set
         if (_connectionFilter && !_connectionFilter(client_addr))
         {
-            std::cerr << "Connection rejected from " << client_ip << " (filtered)" << std::endl;
+            LOG_ERROR() << "Connection rejected from " << client_ip << " (filtered)" ;
             close(client_fd);
             continue;
         }
 
-        std::cout << "Client connected from " << client_ip << std::endl;
+        LOG_INFO() << "Client connected from " << client_ip ;
 
         // Add this client fd to active list so that we can know which to close on shutdown
         // This will prevent the case that the server is stopped but some client threads are still
@@ -297,7 +298,7 @@ void TcpServer::clientThread(int client_fd, const std::string& client_ip)
     // Cleanup - remove from active list
     removeClientFD(client_fd);
 
-    std::cout << "Client disconnected from " << client_ip << std::endl;
+    LOG_INFO() << "Client disconnected from " << client_ip ;
 }
 
 void TcpServer::handleSession(Session& session)

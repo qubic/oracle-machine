@@ -1,4 +1,5 @@
 #include "tcp_client.h"
+#include "logger.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
@@ -100,7 +101,7 @@ std::unique_ptr<Session> TcpClient::connect(
     // Modern DNS resolution (Thread-safe & IPv6 compatible)
     if ((status = getaddrinfo(host.c_str(), port_str, &hints, &res)) != 0)
     {
-        std::cerr << "getaddrinfo failed: " << gai_strerror(status) << std::endl;
+        LOG_ERROR() << "getaddrinfo failed: " << gai_strerror(status) << std::endl;
         return nullptr;
     }
 
@@ -147,7 +148,7 @@ std::unique_ptr<Session> TcpClient::connect(
 
     if (sock_fd < 0)
     {
-        std::cerr << "Failed to connect to " << host << ":" << port << std::endl;
+        LOG_ERROR() << "Failed to connect to " << host << ":" << port << std::endl;
         return nullptr;
     }
 

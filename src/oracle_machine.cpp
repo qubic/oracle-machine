@@ -3,6 +3,7 @@
 #include "node_connection.h"
 #include "oracle_client.h"
 #include "request_handler.h"
+#include "logger.h"
 
 #include <csignal>
 #include <iostream>
@@ -34,7 +35,7 @@ public:
     // Initialize the oracle machine
     bool initialize()
     {
-        std::cout << "Initializing Oracle Machine..." << std::endl;
+        LOG_INFO() << "Initializing Oracle Machine...";
 
         // Setup signal handlers
         signal(SIGINT, signal_handler);
@@ -61,12 +62,12 @@ public:
         if (_running.load())
             return true;
 
-        std::cout << "Starting Oracle Machine..." << std::endl;
+        LOG_INFO() << "Starting Oracle Machine...";
 
         // Start Node Connection Server
         if (!_nodeConnectionServer->start())
         {
-            std::cerr << "Failed to start node connection" << std::endl;
+            LOG_ERROR() << "Failed to start node connection";
             return false;
         }
         
@@ -79,8 +80,7 @@ public:
         _running.store(true);
         _shutdownRequested.store(false);
 
-        std::cout << "Oracle Machine started!" << std::endl;
-        std::cout << "Nodes can connect to port " << OM_SERVER_PORT << std::endl;
+        LOG_INFO() << "Oracle Machine started listening at port " << OM_SERVER_PORT;
 
         return true;
     }
@@ -91,7 +91,7 @@ public:
         if (!_running.load())
             return;
 
-        std::cout << "Stopping Oracle Machine..." << std::endl;
+        LOG_INFO() << "Stopping Oracle Machine...";
 
         _shutdownRequested.store(true);
 
@@ -110,7 +110,7 @@ public:
         }
 
         _running.store(false);
-        std::cout << "Oracle Machine stopped" << std::endl;
+        LOG_INFO() << "Oracle Machine stopped.";
     }
 
     // Check if running
@@ -135,8 +135,8 @@ public:
             auto client = std::make_unique<OracleClient>(
                 endpoint.id, endpoint.name, endpoint.host, endpoint.port);
 
-            std::cout << "  - " << endpoint.name << " (" << endpoint.id << ") at " << endpoint.host
-                      << ":" << endpoint.port << std::endl;
+            LOG_INFO() << "  - " << endpoint.name << " (" << endpoint.id << ") at " << endpoint.host
+                      << ":" << endpoint.port;
 
             _oracleClients[endpoint.id] = std::move(client);
         }

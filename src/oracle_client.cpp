@@ -17,6 +17,7 @@
 #endif
 
 #include "config.h"
+#include "logger.h"
 #include <chrono>
 #include <cstring>
 #include <iostream>
@@ -60,18 +61,18 @@ bool OracleClient::start()
 {
     if (_running.load())
     {
-        std::cout << "[" << _id << "] Already running" << std::endl;
+        LOG_INFO() << "[" << _id << "] Already running";
         return true;
     }
 
-    std::cout << "[" << _id << "] Starting request processing thread..." << std::endl;
+    LOG_INFO() << "[" << _id << "] Starting request processing thread...";
 
     _running.store(true);
     _shutdownRequested.store(false);
 
     _workerThread = std::thread(&OracleClient::workerThread, this);
 
-    std::cout << "[" << _id << "] Request processing thread started" << std::endl;
+    LOG_INFO() << "[" << _id << "] Request processing thread started";
     return true;
 }
 
@@ -82,7 +83,7 @@ void OracleClient::stop()
         return;
     }
 
-    std::cout << "[" << _id << "] Stopping request processing thread..." << std::endl;
+    LOG_INFO() << "[" << _id << "] Stopping request processing thread...";
 
     // Stop all running operations
     forceShutdown();
@@ -109,7 +110,7 @@ void OracleClient::stop()
     // Disconnect
     disconnect();
 
-    std::cout << "[" << _id << "] Request processing thread stopped" << std::endl;
+    LOG_INFO() << "[" << _id << "] Request processing thread stopped";
 }
 
 bool OracleClient::connect()
@@ -125,14 +126,14 @@ bool OracleClient::connect()
     // Reset session if it existed but was inactive
     _session.reset();
 
-    std::cout << "[" << _id << "] Connecting to " << _host << ":" << _port << "..." << std::endl;
+    LOG_INFO() << "[" << _id << "] Connecting to " << _host << ":" << _port << "...";
 
     // TcpClient::connect returns a unique_ptr<Session>
     _session = _tcpClient.connect(_host, _port, CONNECT_TIMEOUT_MS);
 
     if (!_session)
     {
-        std::cerr << "[" << _id << "] Connection failed." << std::endl;
+        LOG_ERROR()<< "[" << _id << "] Connection failed.";
         _connected.store(false);
         return false;
     }
@@ -140,13 +141,13 @@ bool OracleClient::connect()
     // Set I/O timeouts to prevent hanging
     if (!_session->setTimeout(IO_TIMEOUT_MS))
     {
-        std::cerr << "[" << _id << "] Failed to set socket timeouts." << std::endl;
+        LOG_ERROR()<< "[" << _id << "] Failed to set socket timeouts.";
         _session.reset();
         _connected.store(false);
         return false;
     }
 
-    std::cout << "[" << _id << "] Connected." << std::endl;
+    LOG_INFO() << "[" << _id << "] Connected.";
     _connected.store(true);
     return true;
 }
@@ -190,8 +191,8 @@ void OracleClient::fetchAsync(FetchCallback callback)
 {
     if (!_running.load())
     {
-        std::cerr << "[" << _id << "] Cannot enqueue request: worker thread not running"
-                  << std::endl;
+        LOG_ERROR()<< "[" << _id << "] Cannot enqueue request: worker thread not running"
+                 ;
         if (callback)
         {
             OracleData emptyData;
@@ -214,15 +215,15 @@ void OracleClient::fetchAsync(FetchCallback callback)
     // Notify worker thread
     _queueCondition.notify_one();
 
-    std::cout << "[" << _id << "] Request #" << request.requestID
-              << " enqueued (Queue size: " << getPendingRequestCount() << ")" << std::endl;
+    LOG_INFO() << "[" << _id << "] Request #" << request.requestID
+              << " enqueued (Queue size: " << getPendingRequestCount() << ")";
 }
 
 bool OracleClient::fetch(OracleData& data, int timeout_ms)
 {
     if (!_running.load())
     {
-        std::cerr << "[" << _id << "] Cannot fetch: worker thread not running" << std::endl;
+        LOG_ERROR()<< "[" << _id << "] Cannot fetch: worker thread not running";
         return false;
     }
 
@@ -255,8 +256,8 @@ bool OracleClient::fetch(OracleData& data, int timeout_ms)
 
         if (timedOut)
         {
-            std::cerr << "[" << _id << "] Fetch request timed out after " << timeout_ms << "ms"
-                      << std::endl;
+            LOG_ERROR()<< "[" << _id << "] Fetch request timed out after " << timeout_ms << "ms"
+                     ;
             return false;
         }
     }
@@ -277,7 +278,7 @@ bool OracleClient::fetch(OracleData& data, int timeout_ms)
 
 void OracleClient::workerThread()
 {
-    std::cout << "[" << _id << "] Worker thread started" << std::endl;
+    LOG_INFO() << "[" << _id << "] Worker thread started";
 
     while (_running.load())
     {
@@ -314,8 +315,8 @@ void OracleClient::workerThread()
             std::chrono::duration_cast<std::chrono::milliseconds>(now - request.enqueueTime)
                 .count();
 
-        std::cout << "[" << _id << "] Processing request #" << request.requestID << " (Queued for "
-                  << queueTime << "ms)" << std::endl;
+        LOG_INFO() << "[" << _id << "] Processing request #" << request.requestID << " (Queued for "
+                  << queueTime << "ms)";
 
         // Process the request
         OracleData data;
@@ -330,12 +331,12 @@ void OracleClient::workerThread()
             }
             catch (const std::exception& e)
             {
-                std::cerr << "[" << _id << "] Exception in callback: " << e.what() << std::endl;
+                LOG_ERROR()<< "[" << _id << "] Exception in callback: " << e.what();
             }
         }
     }
 
-    std::cout << "[" << _id << "] Worker thread exiting" << std::endl;
+    LOG_INFO() << "[" << _id << "] Worker thread exiting";
 }
 
 bool OracleClient::processFetchRequest(const FetchRequest& request, OracleData& data)
@@ -349,8 +350,8 @@ bool OracleClient::processFetchRequest(const FetchRequest& request, OracleData& 
     // Ensure connected
     if (!connect())
     {
-        std::cerr << "[" << _id << "] Request #" << request.requestID << " failed: cannot connect"
-                  << std::endl;
+        LOG_ERROR()<< "[" << _id << "] Request #" << request.requestID << " failed: cannot connect"
+                 ;
         return false;
     }
 
@@ -365,15 +366,15 @@ bool OracleClient::processFetchRequest(const FetchRequest& request, OracleData& 
 
         if (!_session || !_session->isActive())
         {
-            std::cerr << "[" << _id << "] Request #" << request.requestID
-                      << " failed: session not active" << std::endl;
+            LOG_ERROR()<< "[" << _id << "] Request #" << request.requestID
+                      << " failed: session not active";
             return false;
         }
 
         if (!sendJSONMessage(*_session, oss.str()))
         {
-            std::cerr << "[" << _id << "] Request #" << request.requestID << " failed: cannot send"
-                      << std::endl;
+            LOG_ERROR()<< "[" << _id << "] Request #" << request.requestID << " failed: cannot send"
+                     ;
             _session->close();
             return false;
         }
@@ -384,8 +385,8 @@ bool OracleClient::processFetchRequest(const FetchRequest& request, OracleData& 
         {
             if (_session->isActive())
             {
-                std::cerr << "[" << _id << "] Request #" << request.requestID
-                          << " failed: empty response" << std::endl;
+                LOG_ERROR()<< "[" << _id << "] Request #" << request.requestID
+                          << " failed: empty response";
             }
             _session->close();
             return false;
@@ -394,14 +395,14 @@ bool OracleClient::processFetchRequest(const FetchRequest& request, OracleData& 
         // Parse response
         if (!parseResponse(response, data))
         {
-            std::cerr << "[" << _id << "] Request #" << request.requestID << " failed: parse error"
-                      << std::endl;
+            LOG_ERROR()<< "[" << _id << "] Request #" << request.requestID << " failed: parse error"
+                     ;
             return false;
         }
     }
 
-    std::cout << "[" << _id << "] Request #" << request.requestID << " completed successfully"
-              << std::endl;
+    LOG_INFO() << "[" << _id << "] Request #" << request.requestID << " completed successfully"
+             ;
     return true;
 }
 
@@ -423,8 +424,8 @@ std::string OracleClient::receiveJSONMessage(Session& session)
         // DoS protection
         if (result.size() > MAX_JSON_RESPONSE_SIZE)
         {
-            std::cerr << "[" << _id << "] Error: Response exceeded max size ("
-                      << MAX_JSON_RESPONSE_SIZE << " bytes)" << std::endl;
+            LOG_ERROR()<< "[" << _id << "] Error: Response exceeded max size ("
+                      << MAX_JSON_RESPONSE_SIZE << " bytes)";
             return "";
         }
 
