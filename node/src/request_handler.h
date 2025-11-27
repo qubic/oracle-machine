@@ -23,14 +23,6 @@ public:
     handle(const RequestResponseHeader& header, const uint8_t* payload, int payloadSize);
 
 private:
-     // Handle query based on interface index
-    std::vector<uint8_t>
-    handleQuery(const OracleMachineQuery& query, const uint8_t* queryData, int queryDataSize);
-    
-    // Handle Price oracle interface query
-    std::vector<uint8_t>
-    handlePriceQuery(const OracleMachineQuery& query, const uint8_t* queryData, int queryDataSize);
-
     // Build response with data
     std::vector<uint8_t>
     makeResponse(uint64_t query_id, uint16_t errorFlags, const uint8_t* data, int data_size);

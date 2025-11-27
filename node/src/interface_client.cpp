@@ -191,7 +191,7 @@ void InterfaceClient::queryAsync(
     QueryRequest request;
     request.requestID = _requestID.fetch_add(1);
     request.queryData.assign(queryData, queryData + querySize);
-    request.replySize = replySize;
+    request.replyBufferSize = replySize;
     request.callback = callback;
     request.enqueueTime = std::chrono::steady_clock::now();
 
@@ -376,11 +376,15 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
             return false;
         }
 
-        // Receive reply (exact size)
-        result.replyData.resize(request.replySize);
-        int received = _session->receiveExact(result.replyData.data(), request.replySize);
+        // Receive reply
+        result.replyData.resize(request.replyBufferSize);
+        int received = _session->receive(result.replyData.data(), request.replyBufferSize);
 
-        if (received != (int)request.replySize)
+        if (received > 0) 
+        {
+            result.replyData.resize(received);
+        } 
+        else
         {
             if (_session->isActive())
             {

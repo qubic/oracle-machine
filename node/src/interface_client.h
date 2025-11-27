@@ -80,10 +80,10 @@ public:
     /**
      * Synchronous query - blocks until result is available or timeout
      *
-     * @param queryData Interface-specific query data (e.g., Price::OracleQuery, 104 bytes)
+     * @param queryData Interface-specific query data. The full packet structure { ResponseHeader + OracleQueryData} is expected.
      * @param querySize Size of query data
-     * @param replyData Buffer for interface-specific reply (e.g., Price::OracleReply, 16 bytes)
-     * @param replySize Expected size of reply
+     * @param replyData Buffer for interface-specific reply. The full packet structure { ResponseHeader + OraclRelyData + SpecificOracleData} is expected.
+     * @param replySize Buffer size of reply
      * @param timeout_ms Timeout in milliseconds
      * @return true if successful, false otherwise
      */
@@ -116,12 +116,12 @@ public:
     size_t getTotalQueries() const { return _totalQueries.load(); }
 
 private:
-    // Internal request structure (like oracle_client's FetchRequest)
+    // Internal request structure
     struct QueryRequest
     {
         uint32_t requestID;
         std::vector<uint8_t> queryData;
-        size_t replySize;
+        size_t replyBufferSize; // Buffer size for reply
         QueryCallback callback;
         std::chrono::steady_clock::time_point enqueueTime;
     };

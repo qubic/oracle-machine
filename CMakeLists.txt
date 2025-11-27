@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(oracle_machine LANGUAGES CXX)
+project(oracle_machine)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED TRUE)
@@ -17,4 +17,4 @@ else()
 endif()
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
-add_subdirectory(src)
+add_subdirectory(node)
