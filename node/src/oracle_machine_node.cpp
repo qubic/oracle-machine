@@ -1,4 +1,4 @@
-#include "oracle_machine.h"
+#include "oracle_machine_node.h"
 #include "config.h"
 #include "node_connection.h"
 #include "request_handler.h"
@@ -22,15 +22,15 @@ static void signal_handler(int signum)
     }
 }
 
-class OracleMachineImpl
+class OracleMachineNodeImpl
 {
 public:
-    OracleMachineImpl()
+    OracleMachineNodeImpl()
     {
         _running.store(false);
         _shutdownRequested.store(false);
     }
-    ~OracleMachineImpl() { stop(); }
+    ~OracleMachineNodeImpl() { stop(); }
 
     // Initialize the oracle machine
     bool initialize()
@@ -152,42 +152,42 @@ private:
     std::unique_ptr<RequestHandler> _handler;
 };
 
-OracleMachine::OracleMachine()
+OracleMachineNode::OracleMachineNode()
 {
-    _impl = new OracleMachineImpl();
+    _impl = new OracleMachineNodeImpl();
 }
-OracleMachine::~OracleMachine()
+OracleMachineNode::~OracleMachineNode()
 {
     delete _impl;
     _impl = nullptr;
 }
 
 // Initialize the oracle machine
-bool OracleMachine::initialize()
+bool OracleMachineNode::initialize()
 {
     return _impl->initialize();
 }
 
 // Start the oracle machine
-bool OracleMachine::start()
+bool OracleMachineNode::start()
 {
     return _impl->start();
 }
 
 // Stop the oracle machine
-void OracleMachine::stop()
+void OracleMachineNode::stop()
 {
     _impl->stop();
 }
 
 // Check if running
-bool OracleMachine::isRunning() const
+bool OracleMachineNode::isRunning() const
 {
     return _impl->isRunning();
 }
 
 // Wait for shutdown signal
-void OracleMachine::waitForShutdown()
+void OracleMachineNode::waitForShutdown()
 {
     _impl->waitForShutdown();
 }

@@ -5,6 +5,7 @@
 static constexpr uint16_t OM_SERVER_PORT = 31841;
 static constexpr char OC_SERVER_BIND[] = "10.29.1.16";
 static constexpr uint64_t ORACLE_READ_TIMEOUT_MS = 5000;
+static constexpr uint64_t MAX_PACKET_SIZE_IN_BYTES = 1024;
 
 constexpr uint8_t NODE_LIST[][4] = {
     {10, 29, 1, 22},

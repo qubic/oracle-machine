@@ -7,12 +7,12 @@
 namespace oracle
 {
 
-class OracleMachineImpl;
-class OracleMachine
+class OracleMachineNodeImpl;
+class OracleMachineNode
 {
 public:
-    OracleMachine();
-    ~OracleMachine();
+    OracleMachineNode();
+    ~OracleMachineNode();
 
     // Initialize the oracle machine
     bool initialize();
@@ -30,7 +30,7 @@ public:
     void waitForShutdown();
 
 private:
-    OracleMachineImpl* _impl;
+    OracleMachineNodeImpl* _impl;
 };
 
 } // namespace oracle
