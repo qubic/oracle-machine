@@ -22,7 +22,7 @@ struct InterfaceEndpoint
 
 // The id must match the Oracle Interface index defined in oracle_interfaces/Price.h etc.
 constexpr InterfaceEndpoint INTERFACE_ENDPOINTS[] = {
-    {0, "Price", "192.168.1.20", 9001, 30},    // ONE for all price providers
+    {0, "Price", "0.0.0.0", 9001, 30},    // ONE for all price providers
     {1, "Weather", "192.168.1.21", 9002, 300}, // ONE for all weather providers
 };
 

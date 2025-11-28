@@ -13,7 +13,6 @@ set(OM_SOURCES
     src/interface_client.cpp
     src/node_connection.cpp
     src/request_handler.cpp
-    src/oracle_data.cpp
     src/logger.cpp
     ${OM_NETWORK_SOURCES}
 )
