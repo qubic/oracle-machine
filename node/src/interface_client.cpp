@@ -1,6 +1,7 @@
 #include "interface_client.h"
 #include "config.h"
 #include "logger.h"
+#include "network_messages/header.h"
 
 #include <chrono>
 #include <cstring>
@@ -172,7 +173,6 @@ size_t InterfaceClient::getPendingRequestCount() const
 void InterfaceClient::queryAsync(
     const uint8_t* queryData,
     size_t querySize,
-    size_t replySize,
     QueryCallback callback)
 {
     if (!_running.load())
@@ -191,7 +191,6 @@ void InterfaceClient::queryAsync(
     QueryRequest request;
     request.requestID = _requestID.fetch_add(1);
     request.queryData.assign(queryData, queryData + querySize);
-    request.replyBufferSize = replySize;
     request.callback = callback;
     request.enqueueTime = std::chrono::steady_clock::now();
 
@@ -211,8 +210,7 @@ void InterfaceClient::queryAsync(
 bool InterfaceClient::query(
     const uint8_t* queryData,
     size_t querySize,
-    uint8_t* replyData,
-    size_t replySize,
+    std::vector<uint8_t>& replyData,
     int timeout_ms)
 {
     if (!_running.load())
@@ -240,7 +238,7 @@ bool InterfaceClient::query(
     };
 
     // Enqueue async request
-    queryAsync(queryData, querySize, replySize, callback);
+    queryAsync(queryData, querySize, callback);
 
     // Wait for result with timeout
     std::unique_lock<std::mutex> lock(resultMutex);
@@ -265,16 +263,17 @@ bool InterfaceClient::query(
     // Copy result if successful
     if (success && fetchedResult.valid)
     {
-        if (fetchedResult.replyData.size() == replySize)
+        replyData.resize(fetchedResult.replyData.size());
+        //if (fetchedResult.replyData.size() == replySize)
         {
-            std::memcpy(replyData, fetchedResult.replyData.data(), replySize);
+            std::memcpy(replyData.data(), fetchedResult.replyData.data(), fetchedResult.replyData.size());
             return true;
         }
-        else
-        {
-            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Reply size mismatch: got "
-                        << fetchedResult.replyData.size() << ", expected " << replySize;
-        }
+       // else
+        //{
+        //    OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Reply size mismatch: got "
+        //                << fetchedResult.replyData.size() << ", expected " << replySize;
+        //}
     }
 
     return false;
@@ -377,14 +376,19 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         }
 
         // Receive reply
-        result.replyData.resize(request.replyBufferSize);
-        int received = _session->receive(result.replyData.data(), request.replyBufferSize);
+        // Header first
+        RequestResponseHeader headerBuffer;
+        int headerReceived = _session->receiveExact((uint8_t*)&headerBuffer, sizeof(RequestResponseHeader));
+        if (headerReceived != sizeof(RequestResponseHeader)) {
+            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                        << request.requestID << " failed: invalid reply header";
+            return false;
+        }
 
-        if (received > 0) 
-        {
-            result.replyData.resize(received);
-        } 
-        else
+        result.replyData.resize(headerBuffer.size());
+        int received = _session->receive(result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
+
+        if (received != (int)headerBuffer.getPayloadSize()) 
         {
             if (_session->isActive())
             {

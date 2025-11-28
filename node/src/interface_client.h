@@ -83,15 +83,13 @@ public:
      * @param queryData Interface-specific query data. The full packet structure { ResponseHeader + OracleQueryData} is expected.
      * @param querySize Size of query data
      * @param replyData Buffer for interface-specific reply. The full packet structure { ResponseHeader + OraclRelyData + SpecificOracleData} is expected.
-     * @param replySize Buffer size of reply
      * @param timeout_ms Timeout in milliseconds
      * @return true if successful, false otherwise
      */
     bool query(
         const uint8_t* queryData,
         size_t querySize,
-        uint8_t* replyData,
-        size_t replySize,
+        std::vector<uint8_t>& replyData,
         int timeout_ms);
 
     /**
@@ -101,7 +99,6 @@ public:
     void queryAsync(
         const uint8_t* queryData,
         size_t querySize,
-        size_t replySize,
         QueryCallback callback);
 
     // Get number of pending requests in queue
@@ -121,7 +118,6 @@ private:
     {
         uint32_t requestID;
         std::vector<uint8_t> queryData;
-        size_t replyBufferSize; // Buffer size for reply
         QueryCallback callback;
         std::chrono::steady_clock::time_point enqueueTime;
     };
