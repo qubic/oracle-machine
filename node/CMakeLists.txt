@@ -10,6 +10,7 @@ set(OM_NETWORK_SOURCES
 set(OM_SOURCES
     src/main.cpp
     src/oracle_machine_node.cpp
+    src/oracle_cache.cpp
     src/interface_client.cpp
     src/node_connection.cpp
     src/request_handler.cpp

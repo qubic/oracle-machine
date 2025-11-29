@@ -4,6 +4,7 @@
 #include "request_handler.h"
 #include "logger.h"
 #include "interface_client.h"
+#include "oracle_cache.h"
 
 #include <csignal>
 #include <iostream>
