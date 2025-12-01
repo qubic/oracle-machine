@@ -1,4 +1,4 @@
-#include "session.h"
+#include "network/session.h"
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
@@ -190,7 +190,7 @@ void Session::forceShutdown()
     }
 }
 
-void Session::setKeepAlive(bool enable, int idle_sec, int interval_sec, int count)
+void Session::setKeepAlive(bool enable, int idleSec, int intervalSec, int count)
 {
     if (!enable)
         return;
@@ -218,8 +218,8 @@ void Session::setKeepAlive(bool enable, int idle_sec, int interval_sec, int coun
         NULL,
         NULL);
 #else
-    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPIDLE, &idle_sec, sizeof(idle_sec));
-    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPINTVL, &interval_sec, sizeof(interval_sec));
+    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPIDLE, &idleSec, sizeof(idleSec));
+    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPINTVL, &intervalSec, sizeof(intervalSec));
     setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPCNT, &count, sizeof(count));
 
 #endif

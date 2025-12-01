@@ -1,6 +1,6 @@
 #include "interface_client.h"
 #include "config.h"
-#include "logger.h"
+#include "logger/logger.h"
 #include "network_messages/header.h"
 
 #include <chrono>
