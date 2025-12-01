@@ -281,13 +281,13 @@ void TcpServer::acceptLoop()
     }
 }
 
-void TcpServer::clientThread(int client_fd, const std::string& client_ip)
+void TcpServer::clientThread(int clientFd, const std::string& clienIP)
 {
     // Create Session object (It takes ownership of client_fd)
-    Session session(client_fd, client_ip, 0);
+    Session session(clientFd, clienIP, 0);
 
-    // The thread will now wait forever for the Node to send data.
-    session.setTimeout(0); 
+    // Set the timeout 2 minutes per operation
+    session.setTimeout(120000); 
     
     // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
     session.setKeepAlive(true);
@@ -296,9 +296,9 @@ void TcpServer::clientThread(int client_fd, const std::string& client_ip)
     handleSession(session);
 
     // Cleanup - remove from active list
-    removeClientFD(client_fd);
+    removeClientFD(clientFd);
 
-    OM_LOG_INFO() << "Client disconnected from " << client_ip ;
+    OM_LOG_INFO() << "Client disconnected from " << clienIP ;
 }
 
 void TcpServer::handleSession(Session& session)

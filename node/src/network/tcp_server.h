@@ -31,7 +31,7 @@ public:
     using SessionHandler =
         std::function<void(Session& session)>; // handle session, main process logic
 
-    TcpServer(const std::string& bind_address, uint16_t port);
+    TcpServer(const std::string& bindAddress, uint16_t port);
     ~TcpServer();
 
     // Set callbacks

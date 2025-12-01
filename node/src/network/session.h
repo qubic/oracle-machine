@@ -38,7 +38,7 @@ public:
     bool setTimeout(uint32_t timeout_ms);
 
     // Enable TCP Keep-Alive packets
-    bool setKeepAlive(bool enable);
+    void setKeepAlive(bool enable, int idleSec = 60, int intervalSec = 10, int count = 3);
 
     // Get connection information
     const std::string& getRemoteIP() const { return _remoteIP; }

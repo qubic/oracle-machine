@@ -3,11 +3,13 @@
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
 #include <Ws2tcpip.h>
+#include <mstcpip.h>
 #define close(x) closesocket(x)
 #define SHUT_RDWR SD_BOTH
 #else
 #include <arpa/inet.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <unistd.h>
 #endif
@@ -18,11 +20,11 @@
 namespace oracle
 {
 
-Session::Session(int socket_fd, const std::string& remote_ip, uint16_t remote_port) :
-    _socketFD(socket_fd),
-    _remoteIP(remote_ip),
-    _remotePort(remote_port),
-    _active(socket_fd >= 0),
+Session::Session(int socketFD, const std::string& remoteIP, uint16_t remotePort) :
+    _socketFD(socketFD),
+    _remoteIP(remoteIP),
+    _remotePort(remotePort),
+    _active(socketFD >= 0),
     _bytesSent(0),
     _bytesReceived(0)
 {
@@ -188,18 +190,39 @@ void Session::forceShutdown()
     }
 }
 
-bool Session::setKeepAlive(bool enable)
+void Session::setKeepAlive(bool enable, int idle_sec, int interval_sec, int count)
 {
+    if (!enable)
+        return;
+
     if (_socketFD < 0)
-        return false;
+        return;
 
-    int opt = enable ? 1 : 0;
-    int result = setsockopt(_socketFD, SOL_SOCKET, SO_KEEPALIVE, (const char*)&opt, sizeof(opt));
+    int optval = 1;
+    setsockopt(_socketFD, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval));
+#ifdef _MSC_VER
+    tcp_keepalive settings;
+    settings.onoff = 1;
+    settings.keepalivetime = idle_sec * 1000;
+    settings.keepaliveinterval = interval_sec * 1000;
 
-    if (result < 0)
-        return false;
+    DWORD bytes_returned;
+    WSAIoctl(
+        _socket,
+        SIO_KEEPALIVE_VALS,
+        &settings,
+        sizeof(settings),
+        NULL,
+        0,
+        &bytes_returned,
+        NULL,
+        NULL);
+#else
+    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPIDLE, &idle_sec, sizeof(idle_sec));
+    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPINTVL, &interval_sec, sizeof(interval_sec));
+    setsockopt(_socketFD, IPPROTO_TCP, TCP_KEEPCNT, &count, sizeof(count));
 
-    return true;
+#endif
 }
 
 } // namespace oracle
