@@ -97,9 +97,6 @@ void BaseOracleService::handleSession(Session& session)
     OM_LOG_INFO() << "\n[" << _serviceName << "] Client connected: " << session.getRemoteIP() << ":"
                   << session.getRemotePort();
 
-    // Set timeouts
-    session.setTimeout(0); // stay forever
-
     // Allocate receive buffer
     std::vector<uint8_t> buffer(_queryPacketSize);
 
