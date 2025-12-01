@@ -4,7 +4,7 @@
 #include "network/session.h"
 #include "network/tcp_server.h"
 #include "oracle_core/core_om_network_messages.h"
-#include "logger.h"
+#include "logger/logger.h"
 
 #ifdef _MSC_VER
 #include <Winsock2.h>

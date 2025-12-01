@@ -1,17 +1,5 @@
 project(price_oracle_service)
 
-# Network library sources
-set(ORACLE_NODE_DIR ${CMAKE_SOURCE_DIR}/node/src)
-set(NETWORK_SOURCES
-    ${ORACLE_NODE_DIR}/network/tcp_server.cpp
-    ${ORACLE_NODE_DIR}/network/tcp_client.cpp
-    ${ORACLE_NODE_DIR}/network/session.cpp
-)
-set(LOGGER_SOURCES
-    ${ORACLE_NODE_DIR}/logger.cpp
-)
-
-
 # Service sources
 set(SERVICE_SOURCES
     ${SERVICE_CORE_DIR}/base_oracle_service.cpp
@@ -22,8 +10,6 @@ set(SERVICE_SOURCES
 add_executable(${PROJECT_NAME}
     src/main.cpp
     ${SERVICE_SOURCES}
-    ${NETWORK_SOURCES}
-    ${LOGGER_SOURCES}
 )
 
 target_include_directories(${PROJECT_NAME} 
@@ -35,7 +21,10 @@ target_include_directories(${PROJECT_NAME}
         ${QUBIC_CORE_DIR}/src
         )
 
-set(SERVICE_LINKED_LIBS ${CURL_LIBRARIES})
+set(SERVICE_LINKED_LIBS 
+    ${CURL_LIBRARIES}
+    oracle_logger
+    oracle_network)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(${PROJECT_NAME} PRIVATE -mrdrnd -mavx2 -fpermissive)

@@ -2,7 +2,7 @@
 #include "config.h"
 #include "node_connection.h"
 #include "request_handler.h"
-#include "logger.h"
+#include "logger/logger.h"
 #include "interface_client.h"
 #include "oracle_cache.h"
 

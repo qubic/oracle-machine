@@ -1,5 +1,7 @@
 project(oracle_services)
 
+set(ORACLE_NODE_DIR ${CMAKE_SOURCE_DIR}/node/src)
+
 # Qubic-core
 set(QUBIC_CORE_DIR ${CMAKE_SOURCE_DIR}/submodules/qubic_core)
 

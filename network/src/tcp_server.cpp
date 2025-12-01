@@ -1,5 +1,5 @@
-#include "tcp_server.h"
-#include "logger.h"
+#include "network/tcp_server.h"
+#include "logger/logger.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
@@ -281,10 +281,10 @@ void TcpServer::acceptLoop()
     }
 }
 
-void TcpServer::clientThread(int clientFd, const std::string& clienIP)
+void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 {
     // Create Session object (It takes ownership of client_fd)
-    Session session(clientFd, clienIP, 0);
+    Session session(clientFd, clientIP, 0);
 
     // Set the timeout 2 minutes per operation
     session.setTimeout(120000); 
@@ -298,7 +298,7 @@ void TcpServer::clientThread(int clientFd, const std::string& clienIP)
     // Cleanup - remove from active list
     removeClientFD(clientFd);
 
-    OM_LOG_INFO() << "Client disconnected from " << clienIP ;
+    OM_LOG_INFO() << "Client disconnected from " << clientIP ;
 }
 
 void TcpServer::handleSession(Session& session)

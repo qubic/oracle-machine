@@ -1,5 +1,5 @@
-#include "tcp_client.h"
-#include "logger.h"
+#include "network/tcp_client.h"
+#include <logger/logger.h>
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
