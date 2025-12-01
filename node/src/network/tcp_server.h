@@ -45,11 +45,14 @@ public:
 
     void handleSession(Session& session);
 
+    std::string getBindAddress() { return _bindAddress; };
+    uint16_t getPort() { return _port; };
+
 private:
     void acceptLoop();
     void clientThread(int client_fd, const std::string& client_ip);
     void removeClientFD(int client_fd);
-    void cleanupFinishedThreads(); 
+    void cleanupFinishedThreads();
 
     std::string _bindAddress;
     uint16_t _port;

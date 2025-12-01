@@ -32,17 +32,17 @@
     #include <cstdint>
     
     // Signed 64-bit multiply returning low 64 bits and high 64 bits
-    inline int64_t _mul128(int64_t a, int64_t b, int64_t* high) {
+    inline long long int _mul128(long long int a, long long int b, long long int* high) {
         __int128 result = static_cast<__int128>(a) * static_cast<__int128>(b);
-        *high = static_cast<int64_t>(result >> 64);
-        return static_cast<int64_t>(result);
+        *high = static_cast<long long int>(result >> 64);
+        return static_cast<long long int>(result);
     }
     
     // Unsigned 64-bit multiply returning low 64 bits and high 64 bits
-    inline uint64_t _umul128(uint64_t a, uint64_t b, uint64_t* high) {
+    inline long long unsigned int _umul128(long long unsigned int a, long long unsigned int b, long long unsigned int* high) {
         unsigned __int128 result = static_cast<unsigned __int128>(a) * static_cast<unsigned __int128>(b);
-        *high = static_cast<uint64_t>(result >> 64);
-        return static_cast<uint64_t>(result);
+        *high = static_cast<long long unsigned int>(result >> 64);
+        return static_cast<long long unsigned int>(result);
     }
 #endif
 

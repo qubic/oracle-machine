@@ -47,3 +47,7 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 else()
     message(FATAL "Unsupported compiler.")
 endif()
+
+# Install target
+install(TARGETS ${PROJECT_NAME} 
+        RUNTIME DESTINATION bin)
