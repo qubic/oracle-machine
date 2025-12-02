@@ -45,7 +45,7 @@ public:
         _handler = std::make_unique<RequestHandler>(_interfaceClients);
 
         // Connection to nodes
-        _nodeConnectionServer = std::make_unique<NodeConnection>(OC_SERVER_BIND, OM_SERVER_PORT);
+        _nodeConnectionServer = std::make_unique<NodeConnection>(Config::instance().server().bindAddress, Config::instance().server().port);
         _nodeConnectionServer->setHandler(
             [this](const RequestResponseHeader& header, const uint8_t* payload, int size) {
                 return _handler->handle(header, payload, size);
@@ -81,7 +81,7 @@ public:
         _running.store(true);
         _shutdownRequested.store(false);
 
-        OM_LOG_INFO() << "Oracle Machine started listening at port " << OM_SERVER_PORT;
+        OM_LOG_INFO() << "Oracle Machine started listening at port " << Config::instance().server().port;
 
         return true;
     }
@@ -129,9 +129,9 @@ public:
 
     int setupInterfaceClients()
     {
-        for (size_t i = 0; i < ORACLE_INTERFACES_COUNT; i++)
+        for (size_t i = 0; i < Config::instance().interfaceCount(); i++)
         {
-            const auto& endpoint = INTERFACE_ENDPOINTS[i];
+            const auto& endpoint = Config::instance().interfaces()[i];
 
             auto client = std::make_unique<InterfaceClient>(
                 endpoint.interfaceIndex, endpoint.serviceHost, endpoint.servicePort);

@@ -13,7 +13,7 @@
 namespace Logger
 {
 std::mutex g_mutex;
-std::ofstream g_file;
+std::ofstream gLogFile;
 bool glogToFile = false;
 bool gLogToConsole = true;
 std::atomic<Logger::Level> gMinLevel(Level::DEBUG);
@@ -62,8 +62,8 @@ void Logger::init(bool logToConsole, const char* filePath)
 
     if (filePath)
     {
-        g_file.open(filePath, std::ios::app);
-        if (g_file.is_open())
+        gLogFile.open(filePath, std::ios::app);
+        if (gLogFile.is_open())
             glogToFile = true;
     }
     gLogToConsole = logToConsole;
@@ -72,8 +72,8 @@ void Logger::init(bool logToConsole, const char* filePath)
 void Logger::shutdown()
 {
     std::lock_guard<std::mutex> lk(g_mutex);
-    if (g_file.is_open())
-        g_file.close();
+    if (gLogFile.is_open())
+        gLogFile.close();
 }
 
 void Logger::setLevel(Level lvl)
@@ -104,10 +104,10 @@ void Logger::commit(Level lvl, const char* file, int line, const std::string& ms
 
     std::lock_guard<std::mutex> lk(g_mutex);
 
-    if (glogToFile && g_file.is_open())
+    if (glogToFile && gLogFile.is_open())
     {
-        g_file << ss.str() << std::endl;
-        g_file.flush();
+        gLogFile << ss.str() << std::endl;
+        gLogFile.flush();
     }
 
     if (gLogToConsole)

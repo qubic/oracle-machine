@@ -8,7 +8,7 @@ FROM ${BASE_IMAGE} AS develop
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential git cmake libcurl4-openssl-dev ca-certificates \
+    apt-get install -y --no-install-recommends build-essential git cmake libcurl4-openssl-dev ca-certificates libyaml-cpp-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
@@ -25,7 +25,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libstdc++6 \
         libcurl4 \
-        ca-certificates \
+        ca-certificates libyaml-cpp0.7 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 

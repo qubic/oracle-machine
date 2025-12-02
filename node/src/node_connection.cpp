@@ -1,10 +1,10 @@
 
 #include "node_connection.h"
 #include "config.h"
+#include "logger/logger.h"
 #include "network/session.h"
 #include "network/tcp_server.h"
 #include "oracle_core/core_om_network_messages.h"
-#include "logger/logger.h"
 
 #ifdef _MSC_VER
 #include <Winsock2.h>
@@ -31,10 +31,11 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
     ip[2] = (ip_addr >> 8) & 0xFF;
     ip[3] = ip_addr & 0xFF;
 
-    for (size_t i = 0; i < NODE_COUNT; i++)
+    for (size_t i = 0; i < Config::instance().nodeCount(); i++)
     {
-        if (ip[0] == NODE_LIST[i][0] && ip[1] == NODE_LIST[i][1] && ip[2] == NODE_LIST[i][2] &&
-            ip[3] == NODE_LIST[i][3])
+        auto acceptNode = Config::instance().nodes()[i];
+        if (ip[0] == acceptNode.ip[0] && ip[1] == acceptNode.ip[1] && ip[2] == acceptNode.ip[2] &&
+            ip[3] == acceptNode.ip[3])
         {
             return true;
         }
@@ -132,7 +133,7 @@ void NodeConnection::handleSession(Session& session)
             if (received < 0 || (received > 0 && received < (int)sizeof(header)))
             {
                 OM_LOG_ERROR() << "Node connection error or timeout (IP: " << session.getRemoteIP()
-                          << ")";
+                               << ")";
             }
             break;
         }
@@ -175,7 +176,8 @@ void NodeConnection::handleSession(Session& session)
             // Send Response
             if (!response.empty())
             {
-                sendResponseToNode(session, OracleMachineReply::type, response.data(), response.size());
+                sendResponseToNode(
+                    session, OracleMachineReply::type, response.data(), response.size());
             }
         }
 
