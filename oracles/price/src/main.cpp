@@ -5,15 +5,6 @@
 
 using namespace oracle;
 
-std::atomic<bool> g_running(true);
-
-void signalHandler(int signal)
-{
-    std::cout << "\n[Main] Received signal " << signal << " - shutting down..." << std::endl;
-    g_running = false;
-}
-
-
 int main(int argc, char* argv[])
 {
     std::cout << "============================================================" << std::endl;
