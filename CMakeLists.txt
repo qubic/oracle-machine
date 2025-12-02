@@ -20,6 +20,16 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
+# Thirdparty module
+find_package(yaml-cpp)
+if (yaml-cpp_FOUND)
+    message(STATUS "Found yaml-cpp")
+    message(STATUS "- yaml-cpp_LIBRARIES: ${yaml-cpp_LIBRARIES}")
+    message(STATUS "- yaml-cpp_INCLUDE_DIRS: ${yaml-cpp_INCLUDE_DIRS}")
+else()
+    message(STATUS "yaml-cpp: NOT FOUND")
+endif()
+
 add_subdirectory(logger)
 add_subdirectory(network)
 add_subdirectory(node)
