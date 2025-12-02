@@ -1,0 +1,30 @@
+services:
+
+# Oracle Machine Node
+  oracle-machine-node:
+    image: oracle-machine:latest
+    container_name: oracle-machine-node
+    restart: unless-stopped
+    command: ["oracle_machine_node"]
+    environment:
+      - NODE_IP=${NODE_IP:-127.0.0.1}
+      - NODE_PORT=${NODE_PORT:-21841}
+    networks:
+      - oracle-net
+
+# Price Oracle service
+  price-oracle-service:
+    image: oracle-machine:latest
+    container_name: price-oracle-service
+    restart: unless-stopped
+    command: ["price_oracle_service"]
+    environment:
+      - NODE_IP=${NODE_IP:-127.0.0.1}
+      - NODE_PORT=${NODE_PORT:-21841}
+    networks:
+      - oracle-net
+
+# Network config
+networks:
+  oracle-net:
+    driver: bridge
