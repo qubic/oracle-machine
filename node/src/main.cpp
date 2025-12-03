@@ -1,4 +1,5 @@
 #include "logger/logger.h"
+#include "config.h"
 #include "oracle_machine_node.h"
 
 #include <iostream>
@@ -19,9 +20,9 @@ int main(int argc, char* argv[])
         {
             configFile = argv[++i];
         }
-        if (arg == "--log")
+        else if (arg == "--log")
         {
-            configFile = argv[++i];
+            logFile = argv[++i];
         }
         else if (arg == "--help")
         {
@@ -34,6 +35,8 @@ int main(int argc, char* argv[])
             return 1;
         }
     }
+
+    Config::instance().loadFromEnv();
 
     Logger::init(true, logFile.c_str());
     Logger::setLevel(Logger::Level::DEBUG);

@@ -1,11 +1,12 @@
 #pragma once
 
 #include <array>
-#include <vector>
 #include <cstdint>
+#include <map>
 #include <string>
+#include <vector>
 
-// This config will be use
+// This default config will be used in case of no external config file provided
 namespace ConfigDefaults
 {
 // Server settings
@@ -13,10 +14,7 @@ constexpr uint16_t SERVER_PORT = 31841;
 constexpr const char* SERVER_BIND_ADDRESS = "0.0.0.0";
 
 // Default whitelist nodes
-constexpr uint8_t NODES[][4] = {
-    {127, 0, 0, 1},
-};
-constexpr uint32_t NODE_COUNT = sizeof(NODES) / sizeof(NODES[0]);
+static const std::string NODES("10.29.1.22");  // Comma-separated
 
 // Default interface endpoints
 struct InterfaceDefault
@@ -25,22 +23,30 @@ struct InterfaceDefault
     const char* name;
     const char* host;
     uint16_t port;
-    int cacheTTL;
 };
 
 constexpr InterfaceDefault INTERFACES[] = {
-    {0, "Price", "0.0.0.0", 9001, 30},
-    {1, "Weather", "0.0.0.0", 9002, 300},
+    {0, "Price", "0.0.0.0", 9001},
+    {1, "Weather", "0.0.0.0", 9002},
     // Add more interfaces here
 };
 constexpr uint32_t INTERFACE_COUNT = sizeof(INTERFACES) / sizeof(INTERFACES[0]);
 } // namespace ConfigDefaults
 
-struct ServerConfig
+// ENVIRONMENT VARIABLE NAMES
+// =============================================================================
+
+namespace ConfigEnv
 {
-    uint16_t port = ConfigDefaults::SERVER_PORT;
-    std::string bindAddress = ConfigDefaults::SERVER_BIND_ADDRESS;
-};
+constexpr const char* OM_SERVER_PORT = "OM_SERVER_PORT";
+constexpr const char* QUBIC_NODES = "QUBIC_NODES";
+
+constexpr const char* PRICE_SERVICE_HOST = "PRICE_SERVICE_HOST";
+constexpr const char* PRICE_SERVICE_PORT = "PRICE_SERVICE_PORT";
+
+constexpr const char* WEATHER_SERVICE_HOST = "WEATHER_SERVICE_HOST";
+constexpr const char* WEATHER_SERVICE_PORT = "WEATHER_SERVICE_PORT";
+} // namespace ConfigEnv
 
 struct NodeEndpoint
 {
@@ -59,9 +65,9 @@ struct InterfaceEndpoint
     std::string interfaceName;
     std::string serviceHost;
     uint16_t servicePort;
-    int cacheTTL;
 };
 
+enum class ConfigSource { Default, Env };
 // Configuration for Oracle Machine Node
 class Config
 {
@@ -73,19 +79,17 @@ public:
         return instance;
     }
 
-    // Load configuration from YAML file
-    // Returns true if loaded from file, false if using defaults
-    bool load(const std::string& filepath = "");
+    // Load configuration from env variable
+    // Unset variable will be set as default
+    void loadFromEnv();
 
-    // Check if config was loaded from file
-    bool isLoadedFromFile() const { return _loadedFromFile; }
-
-    const ServerConfig& server() const { return _server; }
     const std::vector<NodeEndpoint>& nodes() const { return _nodes; }
     const std::vector<InterfaceEndpoint>& interfaces() const { return _interfaces; }
 
     uint32_t nodeCount() const { return static_cast<uint32_t>(_nodes.size()); }
     uint32_t interfaceCount() const { return static_cast<uint32_t>(_interfaces.size()); }
+
+    uint16_t getPort() const {return _serverPort;};
 
     // Find interface by index
     const InterfaceEndpoint* findInterface(uint32_t index) const
@@ -98,21 +102,42 @@ public:
         return nullptr;
     }
 
+        // Get source by variable address
+    template<typename T>
+    ConfigSource getSource(const T& var) const
+    {
+        auto it = _sources.find(static_cast<const void*>(&var));
+        return (it != _sources.end()) ? it->second : ConfigSource::Default;
+    }
+
+    // Get source tag by variable address
+    template<typename T>
+    const char* sourceTag(const T& var) const
+    {
+        return getSource(var) == ConfigSource::Env ? "(env)" : "";
+    }
+
+
 private:
     // Force use the singleton
-    Config() { loadDefaults(); }
+    Config() { };
     // Non copyable
     Config(const Config&) = delete;
     Config& operator=(const Config&) = delete;
 
-    void loadDefaults();
+    void print() const;
+    void setSource(const void* addr, ConfigSource src)
+    {
+        _sources[addr] = src;
+    }
 
-    ServerConfig _server;
+    uint16_t _serverPort;
     std::vector<NodeEndpoint> _nodes;
     std::vector<InterfaceEndpoint> _interfaces;
-    bool _loadedFromFile = false;
-};
 
+    // Mainly for debug and tracking
+    std::map<const void*, ConfigSource> _sources;
+};
 
 // #define OM_SERVER_PORT           Config::instance().server().port
 // #define OC_SERVER_BIND           Config::instance().server().bindAddress.c_str()

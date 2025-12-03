@@ -45,7 +45,7 @@ public:
         _handler = std::make_unique<RequestHandler>(_interfaceClients);
 
         // Connection to nodes
-        _nodeConnectionServer = std::make_unique<NodeConnection>(Config::instance().server().bindAddress, Config::instance().server().port);
+        _nodeConnectionServer = std::make_unique<NodeConnection>("0.0.0.0", Config::instance().getPort());
         _nodeConnectionServer->setHandler(
             [this](const RequestResponseHeader& header, const uint8_t* payload, int size) {
                 return _handler->handle(header, payload, size);
@@ -81,7 +81,7 @@ public:
         _running.store(true);
         _shutdownRequested.store(false);
 
-        OM_LOG_INFO() << "Oracle Machine started listening at port " << Config::instance().server().port;
+        OM_LOG_INFO() << "Oracle Machine started listening at port " << Config::instance().getPort();
 
         return true;
     }

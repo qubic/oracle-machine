@@ -3,6 +3,7 @@ project(price_oracle_service)
 # Service sources
 set(SERVICE_SOURCES
     ${SERVICE_CORE_DIR}/base_oracle_service.cpp
+    ${ORACLE_NODE_DIR}/config.cpp # TODO: move this to common
     src/price_service.cpp
 )
 
