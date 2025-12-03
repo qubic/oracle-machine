@@ -34,8 +34,10 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
     for (size_t i = 0; i < Config::instance().nodeCount(); i++)
     {
         auto acceptNode = Config::instance().nodes()[i];
-        if (ip[0] == acceptNode.ip[0] && ip[1] == acceptNode.ip[1] && ip[2] == acceptNode.ip[2] &&
-            ip[3] == acceptNode.ip[3])
+        if (ip[0] == acceptNode.ip[0] 
+            && ip[1] == acceptNode.ip[1] 
+            && ip[2] == acceptNode.ip[2] 
+            && ip[3] == acceptNode.ip[3])
         {
             return true;
         }

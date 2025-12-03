@@ -19,13 +19,6 @@ set(OM_NODE_LINKED_LIBS
     oracle_logger
     oracle_network)
 
-if(yaml-cpp_FOUND)
-    message(STATUS "yaml-cpp found - YAML config file support enabled")
-    set(OM_NODE_LINKED_LIBS ${OM_NODE_LINKED_LIBS} yaml-cpp)
-else()
-    message(STATUS "yaml-cpp not found - using default configuration only")
-endif()
-
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(${PROJECT_NAME} PRIVATE -mrdrnd -mavx2 -fpermissive)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

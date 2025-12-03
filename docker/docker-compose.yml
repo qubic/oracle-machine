@@ -4,11 +4,15 @@ services:
   oracle-machine-node:
     image: oracle-machine:latest
     container_name: oracle-machine-node
+    volumes:
+      - ./logs:/opt/qubic/oracle-machine/logs
+    env_file:
+      - .env
+    user: "${HOST_UID}:${HOST_GID}"
+    ports:
+      - 31841:31841 # Port connection between node and oracle machine, this need to match with port define in config.yml
     restart: unless-stopped
-    command: ["oracle_machine_node"]
-    environment:
-      - NODE_IP=${NODE_IP:-127.0.0.1}
-      - NODE_PORT=${NODE_PORT:-21841}
+    command: ["oracle_machine_node", "--log","/opt/qubic/oracle-machine/logs/oracle_machine_node.log"]
     networks:
       - oracle-net
 
@@ -16,11 +20,16 @@ services:
   price-oracle-service:
     image: oracle-machine:latest
     container_name: price-oracle-service
+    volumes:
+      - ./logs:/opt/qubic/oracle-machine/logs
+    env_file:
+      - .env
+    user: "${HOST_UID}:${HOST_GID}"
+    ports: # Port connection oracle machine and oracle service, this need to match with port define in config.yml
+      - 31842:31842
+      - 31843:31843
     restart: unless-stopped
-    command: ["price_oracle_service"]
-    environment:
-      - NODE_IP=${NODE_IP:-127.0.0.1}
-      - NODE_PORT=${NODE_PORT:-21841}
+    command: ["price_oracle_service", "--log","/opt/qubic/oracle-machine/logs/price_service.log"]
     networks:
       - oracle-net
 

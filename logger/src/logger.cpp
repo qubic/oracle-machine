@@ -59,12 +59,13 @@ std::string timestamp()
 void Logger::init(bool logToConsole, const char* filePath)
 {
     std::lock_guard<std::mutex> lk(g_mutex);
-
     if (filePath)
     {
         gLogFile.open(filePath, std::ios::app);
         if (gLogFile.is_open())
+        {
             glogToFile = true;
+        }
     }
     gLogToConsole = logToConsole;
 }
