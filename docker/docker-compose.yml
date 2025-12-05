@@ -7,7 +7,7 @@ services:
     volumes:
       - ./logs:/opt/qubic/oracle-machine/logs
     env_file:
-      - .env
+      - docker_local.env
     user: "${HOST_UID}:${HOST_GID}"
     ports:
       - 31841:31841 # Port connection between node and oracle machine, this need to match with port define in config.yml
@@ -23,7 +23,7 @@ services:
     volumes:
       - ./logs:/opt/qubic/oracle-machine/logs
     env_file:
-      - .env
+      - docker_local.env
     user: "${HOST_UID}:${HOST_GID}"
     ports: # Port connection oracle machine and oracle service, this need to match with port define in config.yml
       - 31842:31842
