@@ -3,7 +3,6 @@ project(price_oracle_service)
 # Service sources
 set(SERVICE_SOURCES
     ${SERVICE_CORE_DIR}/base_oracle_service.cpp
-    ${ORACLE_NODE_DIR}/config.cpp # TODO: move this to common
     src/price_service.cpp
 )
 
@@ -14,8 +13,7 @@ add_executable(${PROJECT_NAME}
 )
 
 target_include_directories(${PROJECT_NAME} 
-    PRIVATE 
-        ${ORACLE_NODE_DIR}
+    PRIVATE
         ${SERVICE_CORE_DIR}
         ${CURL_INCLUDE_DIRS}
         ${QUBIC_CORE_DIR}
@@ -24,8 +22,8 @@ target_include_directories(${PROJECT_NAME}
 
 set(SERVICE_LINKED_LIBS 
     ${CURL_LIBRARIES}
-    oracle_logger
-    oracle_network)
+    om_common
+    om_network)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(${PROJECT_NAME} PRIVATE -mrdrnd -mavx2 -fpermissive)

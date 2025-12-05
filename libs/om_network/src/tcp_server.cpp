@@ -1,5 +1,5 @@
-#include "network/tcp_server.h"
-#include "logger/logger.h"
+#include "om_network/tcp_server.h"
+#include "om_common/logger.h"
 
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")

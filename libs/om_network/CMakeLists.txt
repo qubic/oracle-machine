@@ -1,4 +1,4 @@
-project(oracle_network)
+project(om_network)
 find_package(Threads REQUIRED)
 
 set(OM_NETWORK_SOURCES
@@ -10,7 +10,7 @@ set(OM_NETWORK_SOURCES
 add_library(${PROJECT_NAME} STATIC ${OM_NETWORK_SOURCES})
 
 set(OM_NETWORK_LINKED_LIBS 
-    oracle_logger
+    om_common
     Threads::Threads)
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")

@@ -1,9 +1,8 @@
 
 #include "node_connection.h"
-#include "config.h"
-#include "logger/logger.h"
-#include "network/session.h"
-#include "network/tcp_server.h"
+#include "om_common/config.h"
+#include "om_common/logger.h"
+#include "om_network/tcp_server.h"
 #include "oracle_core/core_om_network_messages.h"
 
 #ifdef _MSC_VER

@@ -1,6 +1,6 @@
 #pragma once
 
-#include "session.h"
+#include "om_network/session.h"
 
 #include <atomic>
 #include <cstdint>
@@ -22,6 +22,7 @@
 
 namespace oracle
 {
+class Session;
 
 class TcpServer
 {

@@ -1,7 +1,7 @@
 #pragma once
 
-#include "network/session.h"
-#include "network/tcp_client.h"
+#include "om_network/session.h"
+#include "om_network/tcp_client.h"
 
 #include <atomic>
 #include <chrono>

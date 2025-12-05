@@ -1,5 +1,5 @@
-#include "logger/logger.h"
-#include "config.h"
+#include "om_common/logger.h"
+#include "om_common/config.h"
 #include "oracle_machine_node.h"
 
 #include <iostream>
