@@ -1,8 +1,8 @@
 #include "oracle_machine_node.h"
-#include "config.h"
+#include "om_common/config.h"
 #include "node_connection.h"
 #include "request_handler.h"
-#include "logger/logger.h"
+#include "om_common/logger.h"
 #include "interface_client.h"
 #include "oracle_cache.h"
 

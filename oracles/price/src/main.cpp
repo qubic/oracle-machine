@@ -1,6 +1,6 @@
 #include "price_service.h"
-#include "config.h"
-#include <logger/logger.h>
+#include "om_common/config.h"
+#include <om_common/logger.h>
 
 #include <iostream>
 #include <csignal>

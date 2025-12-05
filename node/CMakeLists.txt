@@ -9,15 +9,14 @@ set(OM_SOURCES
     src/interface_client.cpp
     src/node_connection.cpp
     src/request_handler.cpp
-    src/config.cpp
 )
 
 add_executable(${PROJECT_NAME} ${OM_SOURCES})
 
 set(OM_NODE_LINKED_LIBS 
     Threads::Threads
-    oracle_logger
-    oracle_network)
+    om_common
+    om_network)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
     target_compile_options(${PROJECT_NAME} PRIVATE -mrdrnd -mavx2 -fpermissive)
@@ -35,7 +34,7 @@ target_link_libraries(${PROJECT_NAME}
 
 target_include_directories(${PROJECT_NAME}
     PRIVATE
-        ${CMAKE_SOURCE_DIR}/node/src
+        src
         ${CMAKE_SOURCE_DIR}/submodules/qubic_core/src
         ${CMAKE_SOURCE_DIR}/submodules/qubic_core
 )

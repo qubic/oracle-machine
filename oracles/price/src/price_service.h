@@ -2,7 +2,7 @@
 
 #include "base_oracle_service.h"
 
-#include "qpi_adapter.h"
+#include "om_common/qpi_adapter.h"
 #include "oracle_interfaces/Price.h"
 
 #include <map>

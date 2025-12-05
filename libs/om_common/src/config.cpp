@@ -1,5 +1,6 @@
-#include "config.h"
-#include "logger/logger.h"
+#include "om_common/config.h"
+#include "om_common/default_config.h"
+#include "om_common/logger.h"
 
 #include <fstream>
 #include <iostream>

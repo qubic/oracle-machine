@@ -1,7 +1,7 @@
 #include "base_oracle_service.h"
-#include "logger/logger.h"
-#include "network/session.h"
-#include "network/tcp_server.h"
+#include "om_common/logger.h"
+#include "om_network/session.h"
+#include "om_network/tcp_server.h"
 
 #include <chrono>
 #include <csignal>
