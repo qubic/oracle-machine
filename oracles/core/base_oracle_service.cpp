@@ -16,8 +16,7 @@ std::atomic<bool> gRunning(true);
 
 void signalHandler(int signal)
 {
-    std::cout << "\n[BaseOracleService] Received signal " << signal << " - shutting down..."
-              << std::endl;
+    std::cout << "\n[BaseOracleService] Received signal " << signal << " - shutting down...";
     gRunning = false;
 }
 
@@ -39,8 +38,8 @@ BaseOracleService::BaseOracleService(
         REQUEST_RESPONSE_HEADER_SIZE + ORACLE_MACHINE_REPLY_SIZE + interfaceReplySize;
 
     OM_LOG_INFO() << "[" << _serviceName << "] Service initialized";
-    OM_LOG_INFO() << "  Query packet size: " << _queryPacketSize << " bytes";
-    OM_LOG_INFO() << "  Reply packet size: " << _replyPacketSize << " bytes";
+    OM_LOG_DEBUG() << "  Query packet size: " << _queryPacketSize << " bytes";
+    OM_LOG_DEBUG() << "  Reply packet size: " << _replyPacketSize << " bytes";
 
     _server = std::make_unique<TcpServer>(hostName, hostPort);
 
@@ -57,17 +56,18 @@ int BaseOracleService::start()
     std::signal(SIGTERM, signalHandler);
 
     // Start server
-    std::cout << "[BaseOracleService] Starting TCP server..." << std::endl;
+    OM_LOG_INFO() << "[BaseOracleService] Starting TCP server...";
 
     if (!_server->start())
     {
-        std::cerr << "[BaseOracleService] Failed to start server" << std::endl;
+        std::cerr << "[BaseOracleService] Failed to start server";
         return 1;
     }
 
-    std::cout << "[BaseOracleService] Server started successfully" << std::endl;
-    std::cout << "[BaseOracleService] Listening on " << _server->getBindAddress() << ":" << _server->getPort() << std::endl;
-    std::cout << "[BaseOracleService] Press Ctrl+C to stop\n" << std::endl;
+    OM_LOG_INFO() << "[BaseOracleService] Server started successfully";
+    OM_LOG_INFO() << "[BaseOracleService] Listening on " << _server->getBindAddress() << ":"
+                  << _server->getPort();
+    OM_LOG_INFO() << "[BaseOracleService] Press Ctrl+C to stop\n";
 
     return 0;
 }
@@ -78,7 +78,7 @@ int BaseOracleService::stop()
 
     printStatistics();
 
-    std::cout << "[BaseOracleService] Shutdown complete" << std::endl;
+    OM_LOG_INFO() << "[BaseOracleService] Shutdown complete";
     return 0;
 }
 
@@ -110,15 +110,15 @@ void BaseOracleService::handleSession(Session& session)
             // Connection closed or error
             if (received < 0)
             {
-                std::cerr << "[" << _serviceName << "] Receive error";
+                OM_LOG_ERROR() << "[" << _serviceName << "] Receive error";
             }
             break;
         }
 
         if (received != static_cast<int>(_queryPacketSize))
         {
-            std::cerr << "[" << _serviceName << "] Incomplete packet: " << received
-                      << " bytes (expected " << _queryPacketSize << ")";
+            OM_LOG_ERROR() << "[" << _serviceName << "] Incomplete packet: " << received
+                           << " bytes (expected " << _queryPacketSize << ")";
             continue;
         }
 
@@ -126,15 +126,15 @@ void BaseOracleService::handleSession(Session& session)
         QueryPacket query;
         if (!parseQueryPacket(buffer.data(), received, query))
         {
-            std::cerr << "[" << _serviceName << "] Failed to parse query packet";
+            OM_LOG_ERROR() << "[" << _serviceName << "] Failed to parse query packet";
             continue;
         }
 
         _totalQueries++;
 
-        OM_LOG_INFO() << "[" << _serviceName
-                      << "] Query received - QueryId=" << query.query.oracleQueryId
-                      << ", Interface=" << query.query.oracleInterfaceIndex;
+        OM_LOG_DEBUG() << "[" << _serviceName
+                       << "] Query received - QueryId=" << query.query.oracleQueryId
+                       << ", Interface=" << query.query.oracleInterfaceIndex;
 
         // Process query
         ReplyPacket replyPacket;
@@ -151,27 +151,30 @@ void BaseOracleService::handleSession(Session& session)
 
         // Build reply packet
         auto replyData = buildReplyPacket(
-            query, replyPacket.reply.oracleMachineErrorFlags, replyPacket.payload.data(), replyPacket.payload.size());
+            query,
+            replyPacket.reply.oracleMachineErrorFlags,
+            replyPacket.payload.data(),
+            replyPacket.payload.size());
 
         // Send reply
         if (!session.sendData(replyData.data(), replyData.size()))
         {
-            std::cerr << "[" << _serviceName << "] Failed to send reply";
+            OM_LOG_ERROR() << "[" << _serviceName << "] Failed to send reply";
             break;
         }
 
-        OM_LOG_INFO() << "[" << _serviceName << "] Reply sent - " << replyData.size()
-                      << " bytes, ErrorFlags=" << replyPacket.reply.oracleMachineErrorFlags;
+        OM_LOG_DEBUG() << "[" << _serviceName << "] Reply sent - " << replyData.size()
+                       << " bytes, ErrorFlags=" << replyPacket.reply.oracleMachineErrorFlags;
     }
 
-    OM_LOG_INFO() << "[" << _serviceName << "] Client disconnected: " << session.getRemoteIP();
+    OM_LOG_DEBUG() << "[" << _serviceName << "] Client disconnected: " << session.getRemoteIP();
 }
 
 bool BaseOracleService::parseQueryPacket(const uint8_t* data, size_t size, QueryPacket& packet)
 {
     if (size < _queryPacketSize)
     {
-        std::cerr << "[" << _serviceName << "] Packet too small: " << size;
+        OM_LOG_ERROR() << "[" << _serviceName << "] Packet too small: " << size;
         return false;
     }
 
@@ -184,8 +187,8 @@ bool BaseOracleService::parseQueryPacket(const uint8_t* data, size_t size, Query
     // Validate header
     if (packet.header.type() != OracleMachineQuery::type)
     {
-        std::cerr << "[" << _serviceName
-                  << "] Invalid message type: " << static_cast<int>(packet.header.type());
+        OM_LOG_ERROR() << "[" << _serviceName
+                       << "] Invalid message type: " << static_cast<int>(packet.header.type());
         return false;
     }
 
@@ -197,8 +200,8 @@ bool BaseOracleService::parseQueryPacket(const uint8_t* data, size_t size, Query
     size_t payloadSize = size - offset;
     if (payloadSize != _interfaceQuerySize)
     {
-        std::cerr << "[" << _serviceName << "] Invalid payload size: " << payloadSize
-                  << " (expected " << _interfaceQuerySize << ")";
+        OM_LOG_ERROR() << "[" << _serviceName << "] Invalid payload size: " << payloadSize
+                       << " (expected " << _interfaceQuerySize << ")";
         return false;
     }
 
@@ -235,9 +238,9 @@ std::vector<uint8_t> BaseOracleService::buildReplyPacket(
     // Add interface-specific payload
     if (payloadSize != _interfaceReplySize)
     {
-        std::cerr << "[" << _serviceName
-                  << "] Warning: Reply payload size mismatch: " << payloadSize << " (expected "
-                  << _interfaceReplySize << ")";
+        OM_LOG_ERROR() << "[" << _serviceName
+                       << "] Warning: Reply payload size mismatch: " << payloadSize << " (expected "
+                       << _interfaceReplySize << ")";
     }
 
     std::memcpy(packet.data() + offset, payload, std::min(payloadSize, _interfaceReplySize));
@@ -277,18 +280,18 @@ void BaseOracleService::printStatistics() const
 {
     auto stats = getStatistics();
 
-    OM_LOG_INFO() << "\n============================================================";
-    OM_LOG_INFO() << _serviceName << " Service Statistics";
-    OM_LOG_INFO() << "============================================================";
-    OM_LOG_INFO() << "Total queries:     " << stats.totalQueries;
-    OM_LOG_INFO() << "Successful:        " << stats.successful;
-    OM_LOG_INFO() << "Failed:            " << stats.failed;
+    OM_LOG_DEBUG() << "\n============================================================";
+    OM_LOG_DEBUG() << _serviceName << " Service Statistics";
+    OM_LOG_DEBUG() << "============================================================";
+    OM_LOG_DEBUG() << "Total queries:     " << stats.totalQueries;
+    OM_LOG_DEBUG() << "Successful:        " << stats.successful;
+    OM_LOG_DEBUG() << "Failed:            " << stats.failed;
     if (stats.totalQueries > 0)
     {
         double successRate = 100.0 * stats.successful / stats.totalQueries;
-        OM_LOG_INFO() << "Success rate:      " << successRate << "%";
+        OM_LOG_DEBUG() << "Success rate:      " << successRate << "%";
     }
-    OM_LOG_INFO() << "============================================================\n";
+    OM_LOG_DEBUG() << "============================================================\n";
 }
 
 } // namespace oracle
