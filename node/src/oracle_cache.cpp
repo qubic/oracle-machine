@@ -14,12 +14,12 @@ OracleCache::OracleCache(const Config& config) :
 {
     if (_config.enabled)
     {
-        OM_LOG_INFO() << "[Cache] Initialized with TTL=" << _config.ttlSeconds
-                      << "s, MaxEntries=" << _config.maxEntries;
+        OM_LOG_DEBUG() << "[Cache] Initialized with TTL=" << _config.ttlSeconds
+                       << "s, MaxEntries=" << _config.maxEntries;
     }
     else
     {
-        OM_LOG_INFO() << "[Cache] Disabled";
+        OM_LOG_DEBUG() << "[Cache] Disabled";
     }
 }
 

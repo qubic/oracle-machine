@@ -1,7 +1,7 @@
 #include "interface_client.h"
+#include "network_messages/header.h"
 #include "om_common/config.h"
 #include "om_common/logger.h"
-#include "network_messages/header.h"
 
 #include <chrono>
 #include <cstring>
@@ -27,33 +27,34 @@ InterfaceClient::InterfaceClient(uint32_t interfaceIndex, const std::string& hos
     _totalQueries(0)
 {
     OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] created for " << _host << ":"
-               << _port;
+                  << _port;
 }
 
 InterfaceClient::~InterfaceClient()
 {
     stop();
     OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] destroyed. "
-               << "Total queries: " << _totalQueries.load();
+                  << "Total queries: " << _totalQueries.load();
 }
 
 bool InterfaceClient::start()
 {
     if (_running.load())
     {
-        OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Already running";
+        OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Already running";
         return true;
     }
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex
-               << "] Starting request processing thread...";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex
+                   << "] Starting request processing thread...";
 
     _running.store(true);
     _shutdownRequested.store(false);
 
     _workerThread = std::thread(&InterfaceClient::workerThread, this);
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Request processing thread started";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex
+                   << "] Request processing thread started";
     return true;
 }
 
@@ -64,8 +65,8 @@ void InterfaceClient::stop()
         return;
     }
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex
-               << "] Stopping request processing thread...";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex
+                   << "] Stopping request processing thread...";
 
     // Stop all running operations
     forceShutdown();
@@ -92,7 +93,8 @@ void InterfaceClient::stop()
     // Disconnect
     disconnect();
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Request processing thread stopped";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex
+                   << "] Request processing thread stopped";
 }
 
 bool InterfaceClient::connect()
@@ -109,7 +111,7 @@ bool InterfaceClient::connect()
     _session.reset();
 
     OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Connecting to " << _host << ":"
-               << _port << "...";
+                  << _port << "...";
 
     // TcpClient::connect returns a unique_ptr<Session> so that this client owns it
     _session = _tcpClient.connect(_host, _port, CONNECT_TIMEOUT_MS);
@@ -124,7 +126,8 @@ bool InterfaceClient::connect()
     // Set I/O timeouts to prevent hanging
     if (!_session->setTimeout(IO_TIMEOUT_MS))
     {
-        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Failed to set socket timeouts.";
+        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex
+                       << "] Failed to set socket timeouts.";
         _session.reset();
         _connected.store(false);
         return false;
@@ -170,15 +173,12 @@ size_t InterfaceClient::getPendingRequestCount() const
     return _requestQueue.size();
 }
 
-void InterfaceClient::queryAsync(
-    const uint8_t* queryData,
-    size_t querySize,
-    QueryCallback callback)
+void InterfaceClient::queryAsync(const uint8_t* queryData, size_t querySize, QueryCallback callback)
 {
     if (!_running.load())
     {
         OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex
-                    << "] Cannot enqueue request: worker thread not running";
+                       << "] Cannot enqueue request: worker thread not running";
         if (callback)
         {
             InterfaceQueryResult emptyResult;
@@ -203,8 +203,8 @@ void InterfaceClient::queryAsync(
     // Notify worker thread
     _queueCondition.notify_one();
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
-               << " enqueued (Queue size: " << getPendingRequestCount() << ")";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
+                   << " enqueued (Queue size: " << getPendingRequestCount() << ")";
 }
 
 bool InterfaceClient::query(
@@ -216,7 +216,7 @@ bool InterfaceClient::query(
     if (!_running.load())
     {
         OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex
-                    << "] Cannot query: worker thread not running";
+                       << "] Cannot query: worker thread not running";
         return false;
     }
 
@@ -250,7 +250,7 @@ bool InterfaceClient::query(
         if (timedOut)
         {
             OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Query timed out after "
-                        << timeout_ms << "ms";
+                           << timeout_ms << "ms";
             return false;
         }
     }
@@ -264,14 +264,16 @@ bool InterfaceClient::query(
     if (success && fetchedResult.valid)
     {
         replyData.resize(fetchedResult.replyData.size());
-        //if (fetchedResult.replyData.size() == replySize)
+        // if (fetchedResult.replyData.size() == replySize)
         {
-            std::memcpy(replyData.data(), fetchedResult.replyData.data(), fetchedResult.replyData.size());
+            std::memcpy(
+                replyData.data(), fetchedResult.replyData.data(), fetchedResult.replyData.size());
             return true;
         }
-       // else
+        // else
         //{
-        //    OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Reply size mismatch: got "
+        //    OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Reply size mismatch: got
+        //    "
         //                << fetchedResult.replyData.size() << ", expected " << replySize;
         //}
     }
@@ -281,7 +283,7 @@ bool InterfaceClient::query(
 
 void InterfaceClient::workerThread()
 {
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Worker thread started";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Worker thread started";
 
     while (_running.load())
     {
@@ -318,8 +320,8 @@ void InterfaceClient::workerThread()
             std::chrono::duration_cast<std::chrono::milliseconds>(now - request.enqueueTime)
                 .count();
 
-        OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Processing request #"
-                   << request.requestID << " (Queued for " << queueTime << "ms)";
+        OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Processing request #"
+                       << request.requestID << " (Queued for " << queueTime << "ms)";
 
         // Process the request
         InterfaceQueryResult result;
@@ -335,12 +337,12 @@ void InterfaceClient::workerThread()
             catch (const std::exception& e)
             {
                 OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex
-                            << "] Exception in callback: " << e.what();
+                               << "] Exception in callback: " << e.what();
             }
         }
     }
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Worker thread exiting";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Worker thread exiting";
 }
 
 bool InterfaceClient::processQueryRequest(const QueryRequest& request, InterfaceQueryResult& result)
@@ -350,8 +352,8 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
     // Ensure connected
     if (!connect())
     {
-        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
-                    << " failed: cannot connect";
+        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                       << request.requestID << " failed: cannot connect";
         return false;
     }
 
@@ -362,7 +364,7 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         if (!_session || !_session->isActive())
         {
             OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                        << request.requestID << " failed: session not active";
+                           << request.requestID << " failed: session not active";
             return false;
         }
 
@@ -370,7 +372,7 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         if (!_session->sendData(request.queryData.data(), request.queryData.size()))
         {
             OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                        << request.requestID << " failed: cannot send";
+                           << request.requestID << " failed: cannot send";
             _session->close();
             return false;
         }
@@ -378,22 +380,25 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         // Receive reply
         // Header first
         RequestResponseHeader headerBuffer;
-        int headerReceived = _session->receiveExact((uint8_t*)&headerBuffer, sizeof(RequestResponseHeader));
-        if (headerReceived != sizeof(RequestResponseHeader)) {
+        int headerReceived =
+            _session->receiveExact((uint8_t*)&headerBuffer, sizeof(RequestResponseHeader));
+        if (headerReceived != sizeof(RequestResponseHeader))
+        {
             OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                        << request.requestID << " failed: invalid reply header";
+                           << request.requestID << " failed: invalid reply header";
             return false;
         }
 
         result.replyData.resize(headerBuffer.size());
-        int received = _session->receive(result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
+        int received = _session->receive(
+            result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
 
-        if (received != (int)headerBuffer.getPayloadSize()) 
+        if (received != (int)headerBuffer.getPayloadSize())
         {
             if (_session->isActive())
             {
                 OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                            << request.requestID << " failed: invalid reply size " << received;
+                               << request.requestID << " failed: invalid reply size " << received;
             }
             _session->close();
             return false;
@@ -402,8 +407,8 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         result.valid = true;
     }
 
-    OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
-               << " completed successfully";
+    OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
+                   << " completed successfully";
     return true;
 }
 

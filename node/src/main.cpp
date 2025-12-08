@@ -11,16 +11,11 @@ void printHelp()
 
 int main(int argc, char* argv[])
 {
-    std::string configFile;
     std::string logFile = "om_log.txt";
     for (int i = 1; i < argc; ++i) 
     {
         std::string arg = argv[i];
-        if (arg == "--config")
-        {
-            configFile = argv[++i];
-        }
-        else if (arg == "--log")
+        if (arg == "--log")
         {
             logFile = argv[++i];
         }

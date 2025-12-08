@@ -33,10 +33,8 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
     for (size_t i = 0; i < Config::instance().nodeCount(); i++)
     {
         auto acceptNode = Config::instance().nodes()[i];
-        if (ip[0] == acceptNode.ip[0] 
-            && ip[1] == acceptNode.ip[1] 
-            && ip[2] == acceptNode.ip[2] 
-            && ip[3] == acceptNode.ip[3])
+        if (ip[0] == acceptNode.ip[0] && ip[1] == acceptNode.ip[1] && ip[2] == acceptNode.ip[2] &&
+            ip[3] == acceptNode.ip[3])
         {
             return true;
         }
@@ -118,7 +116,7 @@ void NodeConnection::handleSession(Session& session)
 {
     std::vector<uint8_t> buffer(0xFFFF);
 
-    OM_LOG_INFO() << "New Node Session: " << session.getRemoteIP();
+    OM_LOG_DEBUG() << "New Node Session: " << session.getRemoteIP();
 
     while (session.isActive())
     {
@@ -185,7 +183,7 @@ void NodeConnection::handleSession(Session& session)
         // TODO: sleep or yield to avoid busy loop ?
     }
 
-    OM_LOG_INFO() << "Node Session finished: " << session.getRemoteIP();
+    OM_LOG_DEBUG() << "Node Session finished: " << session.getRemoteIP();
 }
 
 } // namespace oracle
