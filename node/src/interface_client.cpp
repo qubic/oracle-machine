@@ -264,18 +264,9 @@ bool InterfaceClient::query(
     if (success && fetchedResult.valid)
     {
         replyData.resize(fetchedResult.replyData.size());
-        // if (fetchedResult.replyData.size() == replySize)
-        {
-            std::memcpy(
-                replyData.data(), fetchedResult.replyData.data(), fetchedResult.replyData.size());
-            return true;
-        }
-        // else
-        //{
-        //    OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Reply size mismatch: got
-        //    "
-        //                << fetchedResult.replyData.size() << ", expected " << replySize;
-        //}
+        std::memcpy(
+            replyData.data(), fetchedResult.replyData.data(), fetchedResult.replyData.size());
+        return true;
     }
 
     return false;

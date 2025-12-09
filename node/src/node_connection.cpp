@@ -87,7 +87,7 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    OM_LOG_INFO() << "Respond to node " << session.getRemoteIP();
+    OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
 
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
@@ -153,7 +153,7 @@ void NodeConnection::handleSession(Session& session)
         }
 
         // Receive Payload
-        int payload_size = packet_size - sizeof(header);
+        int payload_size = (int)packet_size - sizeof(header);
         if (payload_size > 0)
         {
             // recv remaining bytes

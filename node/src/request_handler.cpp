@@ -63,7 +63,6 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
     if (g_cache.lookup(query, cached_data))
     {
         OM_LOG_DEBUG() << "Cache HIT - get data from cache.";
-        // TODO: check error flag ?
         return makeResponse(
             query.oracleQueryId,
             cached_data.errorFlag,
@@ -84,7 +83,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
         {
             OM_LOG_ERROR() << "Interface client not found for index: "
                            << query.oracleInterfaceIndex;
-            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ARG);
+            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ORACLE);
         }
 
         // TODO: timeout need to recalculated base in time received in OM ?
@@ -94,7 +93,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
         {
             OM_LOG_ERROR() << "Query to InterfaceClient[" << query.oracleInterfaceIndex
                            << "] failed";
-            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_TIMEOUT);
+            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
         }
 
         // Expected reply size is at least OracleMachineReply
@@ -102,7 +101,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
         {
             OM_LOG_ERROR() << "InterfaceClient[" << query.oracleInterfaceIndex
                            << "] reply size too small: " << replyFullData.size();
-            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ARG);
+            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
         }
 
         // Make sure reply ID matches query ID
@@ -116,7 +115,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
             OM_LOG_ERROR() << "InterfaceClient[" << query.oracleInterfaceIndex
                            << "] reply ID mismatch: " << reply.oracleQueryId << " (expected "
                            << query.oracleQueryId << ")";
-            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_INVALID_ARG);
+            return makeErrorResponse(query.oracleQueryId, ORACLE_FLAG_ORACLE_UNAVAIL);
         }
 
         // Prepare payload
@@ -128,14 +127,14 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
             replyPayload.size());
 
         // Cache the payload
-        // TODO: verify reply.oracleMachineErrorFlags
+        // TODO: verify reply.oracleMachineErrorFlags before storing to cache
         g_cache.store(
             query, replyPayload.data(), replyPayload.size(), reply.oracleMachineErrorFlags);
 
         // Return success response with reply data
         return makeResponse(
             query.oracleQueryId,
-            ORACLE_FLAG_REPLY_RECEIVED,
+            reply.oracleMachineErrorFlags,
             replyPayload.data(),
             replyPayload.size());
     }
