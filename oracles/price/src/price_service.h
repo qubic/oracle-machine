@@ -17,7 +17,7 @@ namespace oracle
 constexpr size_t PRICE_ORACLE_QUERY_SIZE = sizeof(Price::OracleQuery); // 32 + 8 + 32 + 32
 constexpr size_t PRICE_ORACLE_REPLY_SIZE = sizeof(Price::OracleReply); // 8 + 8
 
-static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime); 
+static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime);
 
 // Price Provider Interface
 class PriceProvider
@@ -81,12 +81,12 @@ public:
 
     /**
      * Price fetch - automatically selects best endpoint based on timestamp age.
-     * 
+     *
      * Accuracy levels:
      * - < 1 day old:     5-minute granularity (market_chart/range)
      * - 1-90 days old:   1-hour granularity (market_chart/range)
      * - > 90 days old:   1-day granularity (history)
-     * 
+     *
      * @param currency1 Base currency (e.g., "BTC")
      * @param currency2 Quote currency (e.g., "USD")
      * @param timestamp Unix timestamp in seconds
@@ -133,7 +133,7 @@ private:
         const std::string& currency2,
         int64_t& numerator,
         int64_t& denominator);
-    
+
     bool fetchPriceRange(
         const std::string& currency1,
         const std::string& currency2,
@@ -141,7 +141,7 @@ private:
         int64_t& numerator,
         int64_t& denominator,
         uint64_t windowSeconds);
-    
+
     bool fetchPriceHistory(
         const std::string& currency1,
         const std::string& currency2,
@@ -149,23 +149,27 @@ private:
         int64_t& numerator,
         int64_t& denominator);
 
-        bool httpGet(const std::string& url, std::string& response);
+    bool httpGet(const std::string& url, std::string& response);
     void applyRateLimit();
-    
+
     // Response parsers
+    std::string trim(const std::string& str);
+    std::vector<std::pair<uint64_t, double>> CoinGeckoPriceProvider::extractPriceArray(
+        const std::string& json);
+
     bool parseSimplePriceResponse(
         const std::string& response,
         const std::string& vsCurrency,
         int64_t& numerator,
         int64_t& denominator);
-    
+
     bool parseRangeResponse(
         const std::string& response,
         uint64_t targetTimestamp,
         const std::string& vsCurrency,
         int64_t& numerator,
         int64_t& denominator);
-    
+
     bool parseHistoryResponse(
         const std::string& response,
         const std::string& vsCurrency,

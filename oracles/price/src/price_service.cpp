@@ -40,30 +40,29 @@ uint64_t timestampToUnixSeconds(const QPI::DateAndTime& timestamp)
     uint8_t hour = timestamp.getHour();
     uint8_t minute = timestamp.getMinute();
     uint8_t second = timestamp.getSecond();
-    
-    
+
     // Build std::tm structure
     std::tm timeinfo = {};
-    timeinfo.tm_year = year - 1900;  // tm_year is years since 1900
-    timeinfo.tm_mon = month - 1;     // tm_mon is 0-11
-    timeinfo.tm_mday = day;          // tm_mday is 1-31
-    timeinfo.tm_hour = hour;         // tm_hour is 0-23
-    timeinfo.tm_min = minute;        // tm_min is 0-59
-    timeinfo.tm_sec = second;        // tm_sec is 0-59
-    timeinfo.tm_isdst = 0;           // No daylight saving time
-    
+    timeinfo.tm_year = year - 1900; // tm_year is years since 1900
+    timeinfo.tm_mon = month - 1;    // tm_mon is 0-11
+    timeinfo.tm_mday = day;         // tm_mday is 1-31
+    timeinfo.tm_hour = hour;        // tm_hour is 0-23
+    timeinfo.tm_min = minute;       // tm_min is 0-59
+    timeinfo.tm_sec = second;       // tm_sec is 0-59
+    timeinfo.tm_isdst = 0;          // No daylight saving time
+
     // Convert to Unix timestamp (UTC)
 #ifdef _WIN32
     time_t unixTime = _mkgmtime(&timeinfo);
 #else
     time_t unixTime = timegm(&timeinfo);
 #endif
-    
+
     if (unixTime == -1)
     {
         return 0;
     }
-    
+
     return static_cast<uint64_t>(unixTime);
 }
 
@@ -513,41 +512,108 @@ void CoinGeckoPriceProvider::applyRateLimit()
     _lastRequestTime = time(nullptr);
 }
 
+std::string CoinGeckoPriceProvider::trim(const std::string& str)
+{
+    size_t start = str.find_first_not_of(" \t\n\r[");
+    size_t end = str.find_last_not_of(" \t\n\r]");
+    if (start == std::string::npos)
+        return "";
+    return str.substr(start, end - start + 1);
+}
+
+std::vector<std::pair<uint64_t, double>> CoinGeckoPriceProvider::extractPriceArray(
+    const std::string& json)
+{
+    std::vector<std::pair<uint64_t, double>> result;
+    
+    // Find the prices array
+    size_t start = json.find("\"prices\"");
+    if (start == std::string::npos)
+        return result;
+    
+    // Extract just the array content
+    start = json.find("[[", start);
+    size_t end = json.find("]]", start);
+    if (start == std::string::npos || end == std::string::npos)
+        return result;
+    
+    std::string arrayContent = json.substr(start + 2, end - start - 2);
+    
+    // Parse each [timestamp, price] pair
+    std::istringstream stream(arrayContent);
+    std::string token;
+    
+    while (std::getline(stream, token, ']'))
+    {
+        // Remove leading [, spaces, commas
+        size_t numStart = token.find_first_of("0123456789");
+        if (numStart == std::string::npos)
+            continue;
+        
+        token = token.substr(numStart);
+        
+        // Find comma separator
+        size_t comma = token.find(',');
+        if (comma == std::string::npos)
+            continue;
+        
+        try
+        {
+            uint64_t timestamp = std::stoull(token.substr(0, comma));
+            double price = std::stod(token.substr(comma + 1));
+            result.push_back({timestamp / 1000, price});  // Convert ms to seconds
+        }
+        catch (...)
+        {
+            // Skip invalid entries
+            continue;
+        }
+    }
+    
+    return result;
+}
+
 bool CoinGeckoPriceProvider::parseSimplePriceResponse(
     const std::string& response,
     const std::string& vsCurrency,
     int64_t& numerator,
     int64_t& denominator)
 {
-    // Response format: {"bitcoin":{"usd":45000.5}}
-
-    std::string searchKey = "\"" + vsCurrency + "\":";
-    size_t pos = response.find(searchKey);
+    // Find: "usd":45000.5
+    std::string key = "\"" + vsCurrency + "\":";
+    size_t pos = response.find(key);
     if (pos == std::string::npos)
     {
-        OM_LOG_ERROR() << "[" << _name << "] Price not found in response";
+        OM_LOG_ERROR() << "[" << _name << "] Currency not found";
         return false;
     }
-
-    pos += searchKey.length();
-    size_t endPos = response.find_first_of("},", pos);
-    std::string priceStr = response.substr(pos, endPos - pos);
-
+    
+    pos += key.length();
+    
+    // Extract number until , or }
+    std::string numStr;
+    while (pos < response.length())
+    {
+        char c = response[pos];
+        if (c == ',' || c == '}')
+            break;
+        if (std::isdigit(c) || c == '.' || c == '-')
+            numStr += c;
+        pos++;
+    }
+    
     try
     {
-        double price = std::stod(priceStr);
-
+        double price = std::stod(numStr);
         numerator = static_cast<int64_t>(price * 1000000);
         denominator = 1000000;
-
-        OM_LOG_DEBUG() << "[" << _name << "] Current price: " << price << " (" << numerator << "/"
-                       << denominator << ")";
-
+        
+        OM_LOG_DEBUG() << "[" << _name << "] Price: " << price;
         return true;
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-        OM_LOG_ERROR() << "[" << _name << "] Failed to parse price: " << e.what();
+        OM_LOG_ERROR() << "[" << _name << "] Failed to parse: " << numStr;
         return false;
     }
 }
@@ -559,86 +625,44 @@ bool CoinGeckoPriceProvider::parseRangeResponse(
     int64_t& numerator,
     int64_t& denominator)
 {
-    // Response format: {"prices":[[timestamp_ms, price], [timestamp_ms, price], ...]}
-
-    size_t pricesPos = response.find("\"prices\"");
-    if (pricesPos == std::string::npos)
+    // Extract all price points
+    auto prices = extractPriceArray(response);
+    
+    if (prices.empty())
     {
         OM_LOG_ERROR() << "[" << _name << "] No prices found in response";
         return false;
     }
-
-    size_t arrayStart = response.find("[[", pricesPos);
-    if (arrayStart == std::string::npos)
-    {
-        OM_LOG_ERROR() << "[" << _name << "] Invalid prices array format";
-        return false;
-    }
-
-    // Find closest price to target timestamp
+    
+    // Find closest to target
     double bestPrice = 0.0;
-    uint64_t bestTimestampDiff = UINT64_MAX;
-
-    size_t pos = arrayStart;
-    while (true)
+    uint64_t bestDiff = UINT64_MAX;
+    
+    for (const auto& [timestamp, price] : prices)
     {
-        // Find next price entry [timestamp, price]
-        size_t bracketStart = response.find("[", pos);
-        if (bracketStart == std::string::npos || response.find("]]", pos) < bracketStart)
+        uint64_t diff = (timestamp > targetTimestamp) ? 
+                       (timestamp - targetTimestamp) : 
+                       (targetTimestamp - timestamp);
+        
+        if (diff < bestDiff)
         {
-            break; // End of array
-        }
-
-        // Parse timestamp (in milliseconds)
-        size_t timestampEnd = response.find(",", bracketStart);
-        if (timestampEnd == std::string::npos)
-        {
-            break;
-        }
-
-        std::string timestampStr =
-            response.substr(bracketStart + 1, timestampEnd - bracketStart - 1);
-        uint64_t timestampMs = std::stoull(timestampStr);
-        uint64_t timestampSec = timestampMs / 1000;
-
-        // Parse price
-        size_t priceEnd = response.find("]", timestampEnd);
-        if (priceEnd == std::string::npos)
-        {
-            break;
-        }
-
-        std::string priceStr = response.substr(timestampEnd + 1, priceEnd - timestampEnd - 1);
-        double price = std::stod(priceStr);
-
-        // Check if this is closer to target
-        uint64_t diff = (timestampSec > targetTimestamp) ? (timestampSec - targetTimestamp) :
-                                                           (targetTimestamp - timestampSec);
-
-        if (diff < bestTimestampDiff)
-        {
-            bestTimestampDiff = diff;
+            bestDiff = diff;
             bestPrice = price;
         }
-
-        pos = priceEnd + 1;
     }
-
+    
     if (bestPrice == 0.0)
     {
         OM_LOG_ERROR() << "[" << _name << "] No valid prices found";
         return false;
     }
-
-    // Convert to rational number
+    
     numerator = static_cast<int64_t>(bestPrice * 1000000);
     denominator = 1000000;
-
-    OM_LOG_INFO() << "[" << _name << "] Found price within " << bestTimestampDiff
-                  << " seconds of target";
-    OM_LOG_DEBUG() << "[" << _name << "] Price: " << bestPrice << " (" << numerator << "/"
-                   << denominator << ")";
-
+    
+    OM_LOG_INFO() << "[" << _name << "] Found price within " << bestDiff << " seconds";
+    OM_LOG_DEBUG() << "[" << _name << "] Price: " << bestPrice;
+    
     return true;
 }
 
@@ -648,50 +672,48 @@ bool CoinGeckoPriceProvider::parseHistoryResponse(
     int64_t& numerator,
     int64_t& denominator)
 {
-    // Response format: {"market_data":{"current_price":{"usd":45000.5}}}
-
-    size_t marketDataPos = response.find("\"market_data\"");
-    if (marketDataPos == std::string::npos)
-    {
-        OM_LOG_ERROR() << "[" << _name << "] market_data not found";
-        return false;
-    }
-
-    size_t currentPricePos = response.find("\"current_price\"", marketDataPos);
-    if (currentPricePos == std::string::npos)
+    // Find: "current_price":{"usd":45000.5
+    size_t pricePos = response.find("\"current_price\"");
+    if (pricePos == std::string::npos)
     {
         OM_LOG_ERROR() << "[" << _name << "] current_price not found";
         return false;
     }
-
-    // Find currency price
-    std::string searchKey = "\"" + vsCurrency + "\":";
-    size_t pos = response.find(searchKey, currentPricePos);
+    
+    std::string key = "\"" + vsCurrency + "\":";
+    size_t pos = response.find(key, pricePos);
     if (pos == std::string::npos)
     {
-        OM_LOG_ERROR() << "[" << _name << "] Price for " << vsCurrency << " not found";
+        OM_LOG_ERROR() << "[" << _name << "] Currency not found";
         return false;
     }
-
-    pos += searchKey.length();
-    size_t endPos = response.find_first_of(",}", pos);
-    std::string priceStr = response.substr(pos, endPos - pos);
-
+    
+    pos += key.length();
+    
+    // Extract number
+    std::string numStr;
+    while (pos < response.length())
+    {
+        char c = response[pos];
+        if (c == ',' || c == '}')
+            break;
+        if (std::isdigit(c) || c == '.' || c == '-')
+            numStr += c;
+        pos++;
+    }
+    
     try
     {
-        double price = std::stod(priceStr);
-
+        double price = std::stod(numStr);
         numerator = static_cast<int64_t>(price * 1000000);
         denominator = 1000000;
-
-        OM_LOG_DEBUG() << "[" << _name << "] Historical price: " << price << " (" << numerator
-                       << "/" << denominator << ")";
-
+        
+        OM_LOG_DEBUG() << "[" << _name << "] Price: " << price;
         return true;
     }
-    catch (const std::exception& e)
+    catch (...)
     {
-        OM_LOG_ERROR() << "[" << _name << "] Failed to parse price: " << e.what();
+        OM_LOG_ERROR() << "[" << _name << "] Failed to parse: " << numStr;
         return false;
     }
 }
@@ -789,7 +811,8 @@ uint16_t PriceService::processInterfaceQuery(
     uint64_t timestamp = timestampToUnixSeconds(query.timestamp);
     if (timestamp == 0)
     {
-        OM_LOG_ERROR() << "[Price] Invalid timestamp in query";
+        OM_LOG_ERROR() << "[Price] Invalid timestamp in query "
+                       << getTimeStampString(query.timestamp);
         return ORACLE_FLAG_INVALID_ARG; // Invalid timestamp
     }
 
