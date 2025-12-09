@@ -227,14 +227,30 @@ bool InterfaceClient::query(
     bool success = false;
     InterfaceQueryResult fetchedResult;
 
+    struct SyncData
+    {
+        std::mutex mutex;
+        std::condition_variable condition;
+        std::atomic<bool> cancelled{false};
+        bool completed = false;
+        bool success = false;
+        InterfaceQueryResult result;
+    };
+    auto syncData = std::make_shared<SyncData>();
+
     // Create callback that signals completion
-    auto callback = [&resultMutex, &resultCondition, &completed, &success, &fetchedResult](
-                        bool callbackSuccess, const InterfaceQueryResult& result) {
-        std::lock_guard<std::mutex> lock(resultMutex);
-        fetchedResult = result;
-        success = callbackSuccess;
-        completed = true;
-        resultCondition.notify_one();
+    auto callback = [syncData](bool callbackSuccess, const InterfaceQueryResult& callbackResult) {
+        std::lock_guard<std::mutex> lock(syncData->mutex);
+
+        if (syncData->cancelled.load())
+        {
+            return; // Request was cancelled due to timeout
+        }
+
+        syncData->result = callbackResult;
+        syncData->success = callbackSuccess;
+        syncData->completed = true;
+        syncData->condition.notify_one();
     };
 
     // Enqueue async request
