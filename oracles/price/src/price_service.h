@@ -31,6 +31,7 @@ public:
      *
      * @param currency1 Base currency (e.g., "BTC")
      * @param currency2 Quote currency (e.g., "USD")
+     * @param timeStamp Unix timestamp of querry
      * @param numerator Output: price numerator
      * @param denominator Output: price denominator
      * @return true if price available, false otherwise
@@ -38,6 +39,7 @@ public:
     virtual bool getPrice(
         const std::string& currency1,
         const std::string& currency2,
+        uint64_t timeStamp,
         int64_t& numerator,
         int64_t& denominator) = 0;
 
@@ -56,6 +58,7 @@ public:
     bool getPrice(
         const std::string& currency1,
         const std::string& currency2,
+        uint64_t timeStamp,
         int64_t& numerator,
         int64_t& denominator) override;
 
@@ -67,7 +70,8 @@ private:
     std::mutex _mutex;
 };
 
-// Specific price provider
+// Specific price provider.
+// Depend on each provider API implementation, we will have different derived class here.
 
 // CoinGecko Price Provider
 class CoinGeckoPriceProvider : public PriceProvider
@@ -75,9 +79,25 @@ class CoinGeckoPriceProvider : public PriceProvider
 public:
     CoinGeckoPriceProvider(const std::string& apiKey = "", const std::string& apiType = "free");
 
+    /**
+     * Price fetch - automatically selects best endpoint based on timestamp age.
+     * 
+     * Accuracy levels:
+     * - < 1 day old:     5-minute granularity (market_chart/range)
+     * - 1-90 days old:   1-hour granularity (market_chart/range)
+     * - > 90 days old:   1-day granularity (history)
+     * 
+     * @param currency1 Base currency (e.g., "BTC")
+     * @param currency2 Quote currency (e.g., "USD")
+     * @param timestamp Unix timestamp in seconds
+     * @param numerator Output: price numerator
+     * @param denominator Output: price denominator
+     * @return true if price fetched successfully
+     */
     bool getPrice(
         const std::string& currency1,
         const std::string& currency2,
+        uint64_t timeStamp,
         int64_t& numerator,
         int64_t& denominator) override;
 
@@ -87,7 +107,8 @@ private:
     {
         int64_t numerator;
         int64_t denominator;
-        time_t timestamp;
+        uint64_t queryTimestamp;
+        time_t fetchTime;
     };
 
     std::string _apiKey;
@@ -102,9 +123,52 @@ private:
     static constexpr double RATE_LIMIT_DELAY = 2.0; // 2 seconds
 
     std::string getCoinId(const std::string& currency);
-    bool fetchFromAPI(
+    std::string getCacheKey(const std::string& pair, uint64_t timestamp) const;
+    // Static helper to determine cache TTL based on timestamp age
+    int getCacheTTL(uint64_t timestamp) const;
+
+    // API fetch methods
+    bool fetchCurrentPrice(
         const std::string& currency1,
         const std::string& currency2,
+        int64_t& numerator,
+        int64_t& denominator);
+    
+    bool fetchPriceRange(
+        const std::string& currency1,
+        const std::string& currency2,
+        uint64_t targetTimestamp,
+        int64_t& numerator,
+        int64_t& denominator,
+        uint64_t windowSeconds);
+    
+    bool fetchPriceHistory(
+        const std::string& currency1,
+        const std::string& currency2,
+        uint64_t timestamp,
+        int64_t& numerator,
+        int64_t& denominator);
+
+        bool httpGet(const std::string& url, std::string& response);
+    void applyRateLimit();
+    
+    // Response parsers
+    bool parseSimplePriceResponse(
+        const std::string& response,
+        const std::string& vsCurrency,
+        int64_t& numerator,
+        int64_t& denominator);
+    
+    bool parseRangeResponse(
+        const std::string& response,
+        uint64_t targetTimestamp,
+        const std::string& vsCurrency,
+        int64_t& numerator,
+        int64_t& denominator);
+    
+    bool parseHistoryResponse(
+        const std::string& response,
+        const std::string& vsCurrency,
         int64_t& numerator,
         int64_t& denominator);
 };

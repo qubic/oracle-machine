@@ -94,6 +94,9 @@ protected:
      *
      * @param queryPayload Interface-specific query payload
      * @param replyPayload Output buffer for reply payload
+
+// Some portable functions from QPI
+uint64_t timestampToUnixSeconds(const QPI::DateAndTime& timestamp);
      * @return error_flags (0 for success, non-zero for error)
      *
      * This method should:
@@ -136,5 +139,6 @@ private:
     // Network related
     std::unique_ptr<TcpServer> _server;
 };
+
 
 } // namespace oracle
