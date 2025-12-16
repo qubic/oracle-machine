@@ -17,7 +17,7 @@ enum class Level
     DEBUG = 0,
     INFO,
     WARNING,
-    ERROR,
+    ERR,
     OFF
 };
 
@@ -62,7 +62,7 @@ private:
 #define OM_LOG_DEBUG() Logger::LogStream(Logger::Level::DEBUG, NULL, 0)
 #define OM_LOG_INFO() Logger::LogStream(Logger::Level::INFO, NULL, 0)
 #define OM_LOG_WARNING() Logger::LogStream(Logger::Level::WARNING, NULL, 0)
-#define OM_LOG_ERROR() Logger::LogStream(Logger::Level::ERROR, __FILE__, __LINE__)
+#define OM_LOG_ERROR() Logger::LogStream(Logger::Level::ERR, __FILE__, __LINE__)
 
 #else
 
@@ -73,7 +73,7 @@ enum class Level
     DEBUG,
     INFO,
     WARNING,
-    ERROR,
+    ERR,
     OFF
 };
 inline void init(const char*) {}

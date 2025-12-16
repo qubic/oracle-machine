@@ -4,7 +4,6 @@
 #include <Winsock2.h>
 #include <Ws2tcpip.h>
 #include <mstcpip.h>
-#define close(x) closesocket(x)
 #define SHUT_RDWR SD_BOTH
 #else
 #include <arpa/inet.h>
@@ -82,8 +81,11 @@ void Session::close()
         {
             shutdown(_socketFD, SHUT_RDWR);
         }
-
+#ifdef _MSC_VER
+        closesocket(_socketFD);
+#else
         ::close(_socketFD);
+#endif
 
         std::cout << "Session closed: " << _remoteIP << ":" << _remotePort << " [FD:" << _socketFD
                   << "]" << std::endl;
@@ -199,16 +201,16 @@ void Session::setKeepAlive(bool enable, int idleSec, int intervalSec, int count)
         return;
 
     int optval = 1;
-    setsockopt(_socketFD, SOL_SOCKET, SO_KEEPALIVE, &optval, sizeof(optval));
+    setsockopt(_socketFD, SOL_SOCKET, SO_KEEPALIVE, (const char*)&optval, sizeof(optval));
 #ifdef _MSC_VER
     tcp_keepalive settings;
     settings.onoff = 1;
-    settings.keepalivetime = idle_sec * 1000;
-    settings.keepaliveinterval = interval_sec * 1000;
+    settings.keepalivetime = idleSec * 1000;
+    settings.keepaliveinterval = intervalSec * 1000;
 
     DWORD bytes_returned;
     WSAIoctl(
-        _socket,
+        _socketFD,
         SIO_KEEPALIVE_VALS,
         &settings,
         sizeof(settings),

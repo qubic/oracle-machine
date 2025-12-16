@@ -28,7 +28,7 @@ const char* levelName(Logger::Level lvl)
         return "INF";
     case Logger::Level::WARNING:
         return "WRN";
-    case Logger::Level::ERROR:
+    case Logger::Level::ERR:
         return "ERR";
     default:
         return "UNK";
@@ -113,7 +113,7 @@ void Logger::commit(Level lvl, const char* file, int line, const std::string& ms
 
     if (gLogToConsole)
     {
-        if (lvl == Level::ERROR)
+        if (lvl == Level::ERR)
         {
             std::cerr << ss.str() << std::endl;
         }

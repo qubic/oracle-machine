@@ -2,10 +2,12 @@
 #include "om_common/logger.h"
 
 #ifdef _MSC_VER
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
 #include <Ws2tcpip.h>
-#define close(x) closesocket(x)
 #define SHUT_RDWR SD_BOTH
 typedef int socklen_t;
 #else
@@ -96,7 +98,11 @@ bool TcpServer::start()
     if (bind(_serverFD, (struct sockaddr*)&addr, sizeof(addr)) < 0)
     {
         OM_LOG_ERROR() << "Failed to bind to " << _bindAddress << ":" << _port ;
-        close(_serverFD);
+#ifdef _MSC_VER
+        closesocket(_serverFD);
+#else
+        ::close(_serverFD);
+#endif
         _serverFD = -1;
         return false;
     }
@@ -105,7 +111,11 @@ bool TcpServer::start()
     if (listen(_serverFD, 10) < 0)
     {
         OM_LOG_ERROR() << "Failed to listen" ;
-        close(_serverFD);
+#ifdef _MSC_VER
+        closesocket(_serverFD);
+#else
+        ::close(_serverFD);
+#endif
         _serverFD = -1;
         return false;
     }
@@ -156,7 +166,11 @@ void TcpServer::stop()
     if (_serverFD >= 0)
     {
         OM_LOG_INFO() << "Closing server socket..." ;
-        close(_serverFD);
+#ifdef _MSC_VER
+        closesocket(_serverFD);
+#else
+        ::close(_serverFD);
+#endif
         _serverFD = -1;
     }
 
@@ -260,7 +274,11 @@ void TcpServer::acceptLoop()
         if (_connectionFilter && !_connectionFilter(client_addr))
         {
             OM_LOG_ERROR() << "Connection rejected from " << client_ip << " (filtered)" ;
-            close(client_fd);
+#ifdef _MSC_VER
+            closesocket(client_fd);
+#else
+            ::close(client_fd);
+#endif
             continue;
         }
 

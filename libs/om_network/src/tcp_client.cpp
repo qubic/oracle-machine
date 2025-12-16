@@ -2,10 +2,12 @@
 #include <om_common/logger.h>
 
 #ifdef _MSC_VER
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
 #include <Ws2tcpip.h>
-#define close(x) closesocket(x)
 #define SHUT_RDWR SD_BOTH
 typedef int socklen_t;
 #else
@@ -116,7 +118,11 @@ std::unique_ptr<Session> TcpClient::connect(
         // Set non-blocking for timeout support
         if (!setNonBlocking(sock_fd))
         {
+#ifdef _MSC_VER
+            closesocket(sock_fd);
+#else
             ::close(sock_fd);
+#endif
             sock_fd = -1;
             continue;
         }
@@ -140,7 +146,11 @@ std::unique_ptr<Session> TcpClient::connect(
         }
 
         // Connection failed, close and try next address
+#ifdef _MSC_VER
+        closesocket(sock_fd);
+#else
         ::close(sock_fd);
+#endif
         sock_fd = -1;
     }
 
