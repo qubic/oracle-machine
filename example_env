@@ -1,0 +1,46 @@
+# =============================================================================
+# Oracle Machine Environment Configuration
+# =============================================================================
+#
+# This file configures the Oracle Machine Node and Oracle Services.
+# Usage:
+#   Local:  source .env && ./oracle_machine_node
+#   Docker: docker compose up (reads .env file setting in docker-compose.yml)
+#
+# If a variable is not set, the default value from config.h will be used.
+# =============================================================================
+
+# -----------------------------------------------------------------------------
+# Oracle Machine Node Settings
+
+# Port that Oracle Machine Node listens on for connections from Qubic nodes
+export OM_SERVER_PORT=31841
+
+# Qubic Nodes Whitelist
+# Comma-separated list of Qubic node IPs allowed to connect to Oracle Machine
+# Example: Single node:    QUBIC_NODES=192.168.1.2
+#          Multiple nodes: QUBIC_NODES=192.168.1.2,192.168.1.3,192.168.1.4
+export QUBIC_NODES=192.168.1.2,192.168.1.3
+
+
+# Oracle Services Endpoints
+# Price Oracle Service
+# For Docker: use service name (e.g., price-oracle-service)
+# For Local:  use IP address (e.g., 127.0.0.1)
+export PRICE_SERVICE_HOST=192.168.1.4
+export PRICE_SERVICE_PORT=31842
+
+# Weather Oracle Service
+# For Docker: use service name (e.g., weather-oracle-service)
+# For Local:  use IP address (e.g., 127.0.0.1)
+export WEATHER_SERVICE_HOST=192.168.1.5
+export WEATHER_SERVICE_PORT=31843
+
+# -----------------------------------------------------------------------------
+# Docker Settings (only used when running with docker compose)
+
+# User/Group ID for Docker volume permissions
+# Run this command to get your IDs: id -u && id -g
+# Then uncomment and update the values below:
+# export HOST_UID=1000
+# export HOST_GID=1000
