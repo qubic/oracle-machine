@@ -6,6 +6,12 @@
 #include <string>
 #include <vector>
 
+// ORACLE INTERFACE INDEX
+// =============================================================================
+constexpr const uint32_t PRICE_ORACLE_INTERFACE_INDEX = 0;
+constexpr const uint32_t MOCK_ORACLE_INTERFACE_INDEX = 1;
+constexpr const uint32_t MAX_ORACLE_INTERFACES_SUPPORT = 1024;
+
 // ENVIRONMENT VARIABLE NAMES
 // =============================================================================
 
@@ -17,8 +23,8 @@ constexpr const char* QUBIC_NODES = "QUBIC_NODES";
 constexpr const char* PRICE_SERVICE_HOST = "PRICE_SERVICE_HOST";
 constexpr const char* PRICE_SERVICE_PORT = "PRICE_SERVICE_PORT";
 
-constexpr const char* WEATHER_SERVICE_HOST = "WEATHER_SERVICE_HOST";
-constexpr const char* WEATHER_SERVICE_PORT = "WEATHER_SERVICE_PORT";
+constexpr const char* MOCK_SERVICE_HOST = "MOCK_SERVICE_HOST";
+constexpr const char* MOCK_SERVICE_PORT = "MOCK_SERVICE_PORT";
 } // namespace ConfigEnv
 
 struct NodeEndpoint
