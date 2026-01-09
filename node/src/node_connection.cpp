@@ -146,7 +146,7 @@ void NodeConnection::handleSession(Session& session)
         }
 
         // Check if this is an OracleMachineQuery
-        if (header.type() != OracleMachineQuery::type)
+        if (header.type() != OracleMachineQuery::type())
         {
             // Skipping unknown message types
             continue;
@@ -176,7 +176,7 @@ void NodeConnection::handleSession(Session& session)
             if (!response.empty())
             {
                 sendResponseToNode(
-                    session, OracleMachineReply::type, response.data(), response.size());
+                    session, OracleMachineReply::type(), response.data(), response.size());
             }
         }
 

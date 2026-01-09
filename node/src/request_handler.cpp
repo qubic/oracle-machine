@@ -23,7 +23,7 @@ std::vector<uint8_t>
 RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* payload, int payloadSize)
 {
     // Verify this is an OracleMachineQuery
-    if (header.type() != OracleMachineQuery::type)
+    if (header.type() != OracleMachineQuery::type())
     {
         OM_LOG_ERROR() << "RequestHandler: Unknown request type " << (int)header.type();
         return std::vector<uint8_t>(); // Empty response for unknown types

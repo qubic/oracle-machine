@@ -185,7 +185,7 @@ bool BaseOracleService::parseQueryPacket(const uint8_t* data, size_t size, Query
     offset += REQUEST_RESPONSE_HEADER_SIZE;
 
     // Validate header
-    if (packet.header.type() != OracleMachineQuery::type)
+    if (packet.header.type() != OracleMachineQuery::type())
     {
         OM_LOG_ERROR() << "[" << _serviceName
                        << "] Invalid message type: " << static_cast<int>(packet.header.type());
