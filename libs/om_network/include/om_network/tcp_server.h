@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <set>
 
 #ifdef _MSC_VER
 #include <Winsock2.h>
@@ -69,6 +70,7 @@ private:
     std::mutex _clientFDsMutex;
 
     std::mutex _threadsMutex;
+    std::set<std::thread::id> _finishedThreadIds; 
 
     // Callbacks
     ConnectionFilter _connectionFilter;

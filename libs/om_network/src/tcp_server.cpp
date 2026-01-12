@@ -136,9 +136,10 @@ void TcpServer::cleanupFinishedThreads()
     auto it = _clientThreads.begin();
     while (it != _clientThreads.end())
     {
-        if (it->joinable())
+        if (_finishedThreadIds.count(it->get_id()) > 0)
         {
-            it->join();
+            it->join();  // thread has finished
+            _finishedThreadIds.erase(it->get_id());
             it = _clientThreads.erase(it);
         }
         else
@@ -196,7 +197,6 @@ void TcpServer::stop()
 
     // Wait for all client threads cleanup
     {
-        std::lock_guard<std::mutex> lock(_threadsMutex);
         OM_LOG_INFO() << "Waiting for " << _clientThreads.size() << " client threads..." ;
         for (auto& t : _clientThreads)
         {
@@ -205,7 +205,12 @@ void TcpServer::stop()
                 t.join();
             }
         }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
         _clientThreads.clear();
+        _finishedThreadIds.clear();
     }
 
     {
@@ -312,6 +317,12 @@ void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 
     // Handle the session
     handleSession(session);
+
+    // Mark this thread as finished for cleanup
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        _finishedThreadIds.insert(std::this_thread::get_id());
+    }
 
     // Cleanup - remove from active list
     removeClientFD(clientFd);
