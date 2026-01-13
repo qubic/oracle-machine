@@ -161,6 +161,7 @@ void NodeConnection::handleSession(Session& session)
         // Check if this is an OracleMachineQuery and do further process
         if (header.type() != OracleMachineQuery::type())
         {
+            OM_LOG_DEBUG() << "Received unexpetected message type. " << (int)header.type();
             // Skipping unknown message types
             continue;
         }
