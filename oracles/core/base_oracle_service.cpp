@@ -119,7 +119,8 @@ void BaseOracleService::handleSession(Session& session)
         {
             OM_LOG_ERROR() << "[" << _serviceName << "] Incomplete packet: " << received
                            << " bytes (expected " << _queryPacketSize << ")";
-            continue;
+            // Packet is corrupted
+            break;
         }
 
         // Parse query packet

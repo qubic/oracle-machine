@@ -145,14 +145,7 @@ void NodeConnection::handleSession(Session& session)
             break;
         }
 
-        // Check if this is an OracleMachineQuery
-        if (header.type() != OracleMachineQuery::type())
-        {
-            // Skipping unknown message types
-            continue;
-        }
-
-        // Receive Payload
+        // Receive Payload - consume payload for whaterver packet
         int payload_size = (int)packet_size - sizeof(header);
         if (payload_size > 0)
         {
@@ -163,6 +156,13 @@ void NodeConnection::handleSession(Session& session)
                 OM_LOG_ERROR() << "Failed to receive payload";
                 break;
             }
+        }
+
+        // Check if this is an OracleMachineQuery and do further process
+        if (header.type() != OracleMachineQuery::type())
+        {
+            // Skipping unknown message types
+            continue;
         }
 
         // Process Request
