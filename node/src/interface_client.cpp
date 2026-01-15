@@ -12,14 +12,17 @@
 namespace oracle
 {
 
-// Constants
-static const int CONNECT_TIMEOUT_MS = 3000;
-static const int IO_TIMEOUT_MS = 5000; // 5 seconds to read/write
-
-InterfaceClient::InterfaceClient(uint32_t interfaceIndex, const std::string& host, uint16_t port) :
+InterfaceClient::InterfaceClient(
+    uint32_t interfaceIndex,
+    const std::string& host,
+    uint16_t port,
+    int connectionTimeoutMs,
+    int ioTimeoutMs) :
     _interfaceIndex(interfaceIndex),
     _host(host),
     _port(port),
+    _connectionTimeoutMs(connectionTimeoutMs),
+    _ioTimeoutMs(ioTimeoutMs),
     _connected(false),
     _requestID(0),
     _running(false),
@@ -114,7 +117,7 @@ bool InterfaceClient::connect()
                   << _port << "...";
 
     // TcpClient::connect returns a unique_ptr<Session> so that this client owns it
-    _session = _tcpClient.connect(_host, _port, CONNECT_TIMEOUT_MS);
+    _session = _tcpClient.connect(_host, _port, _connectionTimeoutMs);
 
     if (!_session)
     {
@@ -124,7 +127,7 @@ bool InterfaceClient::connect()
     }
 
     // Set I/O timeouts to prevent hanging
-    if (!_session->setTimeout(IO_TIMEOUT_MS))
+    if (!_session->setTimeout(_ioTimeoutMs))
     {
         OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex
                        << "] Failed to set socket timeouts.";
@@ -377,6 +380,7 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         {
             OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
                            << request.requestID << " failed: invalid reply header";
+            _session->close();
             return false;
         }
 
