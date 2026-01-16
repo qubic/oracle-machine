@@ -17,6 +17,7 @@ class Session;
 class NodeConnection
 {
 public:
+    static constexpr int TIME_OUT_MS = 120000;
     NodeConnection(const std::string& bind_address, uint16_t port);
     ~NodeConnection();
 

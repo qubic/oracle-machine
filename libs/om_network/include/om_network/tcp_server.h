@@ -33,7 +33,7 @@ public:
     using SessionHandler =
         std::function<void(Session& session)>; // handle session, main process logic
 
-    TcpServer(const std::string& bindAddress, uint16_t port);
+    TcpServer(const std::string& bindAddress, uint16_t port, int timeOutMs = 120000);
     ~TcpServer();
 
     // Set callbacks
@@ -58,6 +58,7 @@ private:
 
     std::string _bindAddress;
     uint16_t _port;
+    int _timeoutMs;
     int _serverFD;
 
     std::atomic<bool> _running;

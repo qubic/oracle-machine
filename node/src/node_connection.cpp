@@ -44,7 +44,7 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
 
 NodeConnection::NodeConnection(const std::string& bind_address, uint16_t port)
 {
-    _tcpServer = std::make_unique<TcpServer>(bind_address, port);
+    _tcpServer = std::make_unique<TcpServer>(bind_address, port, TIME_OUT_MS);
 
     // Set connection filter to validate allowed IPs
     _tcpServer->setConnectionFilter(

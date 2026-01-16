@@ -41,7 +41,7 @@ BaseOracleService::BaseOracleService(
     OM_LOG_DEBUG() << "  Query packet size: " << _queryPacketSize << " bytes";
     OM_LOG_DEBUG() << "  Reply packet size: " << _replyPacketSize << " bytes";
 
-    _server = std::make_unique<TcpServer>(hostName, hostPort);
+    _server = std::make_unique<TcpServer>(hostName, hostPort, TIME_OUT_MS);
 
     // Set session handler
     _server->setSessionHandler([this](Session& session) { handleSession(session); });
