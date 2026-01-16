@@ -1,4 +1,6 @@
 #include "om_network/session.h"
+#include "om_common/logger.h"
+
 #ifdef _MSC_VER
 #pragma comment(lib, "Ws2_32.lib")
 #include <Winsock2.h>
@@ -27,6 +29,7 @@ Session::Session(int socketFD, const std::string& remoteIP, uint16_t remotePort)
     _bytesSent(0),
     _bytesReceived(0)
 {
+    OM_LOG_DEBUG() << "New Node Session: " << getRemoteIP() << "[FD:" << _socketFD << "]";
 }
 
 Session::~Session()
@@ -87,7 +90,7 @@ void Session::close()
         ::close(_socketFD);
 #endif
 
-        std::cout << "Session closed: " << _remoteIP << ":" << _remotePort << " [FD:" << _socketFD
+        OM_LOG_DEBUG() << "Session closed: " << _remoteIP << ":" << _remotePort << " [FD:" << _socketFD
                   << "]" << std::endl;
 
         _socketFD = -1;

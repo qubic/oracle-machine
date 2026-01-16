@@ -132,19 +132,30 @@ bool TcpServer::start()
 
 void TcpServer::cleanupFinishedThreads()
 {
-    std::lock_guard<std::mutex> lock(_threadsMutex);
-    auto it = _clientThreads.begin();
-    while (it != _clientThreads.end())
+    std::vector<std::thread> threadsToJoin;
     {
-        if (_finishedThreadIds.count(it->get_id()) > 0)
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        auto it = _clientThreads.begin();
+        while (it != _clientThreads.end())
         {
-            it->join();  // thread has finished
-            _finishedThreadIds.erase(it->get_id());
-            it = _clientThreads.erase(it);
+            if (_finishedThreadIds.count(it->get_id()) > 0)
+            {
+                threadsToJoin.push_back(std::move(*it)); 
+                _finishedThreadIds.erase(it->get_id());
+                it = _clientThreads.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
         }
-        else
+    }
+
+    for (auto& t : threadsToJoin)
+    {
+        if (t.joinable())
         {
-            ++it;
+            t.join();
         }
     }
 }
@@ -306,6 +317,8 @@ void TcpServer::acceptLoop()
 
 void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 {
+     auto startTime = std::chrono::steady_clock::now();
+     
     // Create Session object (It takes ownership of client_fd)
     Session session(clientFd, clientIP, 0);
 
@@ -317,6 +330,12 @@ void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 
     // Handle the session
     handleSession(session);
+
+    // Log session duration
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+        std::chrono::steady_clock::now() - startTime).count();
+    OM_LOG_INFO() << "Session " << clientIP << " duration: " << duration << "s, "
+                  << "sent=" << session.getBytesSent() << ", recv=" << session.getBytesReceived();
 
     // Mark this thread as finished for cleanup
     {

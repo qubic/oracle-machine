@@ -116,8 +116,6 @@ void NodeConnection::handleSession(Session& session)
 {
     std::vector<uint8_t> buffer(0xFFFF);
 
-    OM_LOG_DEBUG() << "New Node Session: " << session.getRemoteIP();
-
     while (session.isActive())
     {
         // Receive header
