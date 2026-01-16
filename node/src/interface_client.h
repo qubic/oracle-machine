@@ -55,12 +55,7 @@ public:
      * @param host Host of the aggregator service
      * @param port Port of the aggregator service
      */
-    InterfaceClient(
-        uint32_t interfaceIndex,
-        const std::string& host,
-        uint16_t port,
-        int connectionTimeoutMs = 3000,
-        int ioTimeoutMs = 30000);
+    InterfaceClient(uint32_t interfaceIndex, const std::string& host, uint16_t port);
 
     ~InterfaceClient();
 
@@ -143,8 +138,6 @@ private:
     uint32_t _interfaceIndex;
     std::string _host;
     uint16_t _port;
-    int _connectionTimeoutMs;
-    int _ioTimeoutMs;
 
     // Network components
     TcpClient _tcpClient;

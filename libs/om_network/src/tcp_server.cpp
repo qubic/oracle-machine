@@ -25,8 +25,8 @@ typedef int socklen_t;
 namespace oracle
 {
 
-TcpServer::TcpServer(const std::string& bind_address, uint16_t port, int sectionTimeoutMs) :
-    _bindAddress(bind_address), _port(port), _serverFD(-1), _sectionTimeoutMs(sectionTimeoutMs), _running(false), _stopRequested(false)
+TcpServer::TcpServer(const std::string& bind_address, uint16_t port) :
+    _bindAddress(bind_address), _port(port), _serverFD(-1), _running(false), _stopRequested(false)
 {
 #ifdef _MSC_VER
     WSADATA wsa_data;
@@ -309,10 +309,10 @@ void TcpServer::clientThread(int clientFd, const std::string& clientIP)
     // Create Session object (It takes ownership of client_fd)
     Session session(clientFd, clientIP, 0);
 
-    // Set the timeout per operation
-    session.setTimeout(_sectionTimeoutMs); 
+    // Set the timeout 2 minutes per operation
+    session.setTimeout(120000); 
     
-    // Enable TCP Keep-Alive.
+    // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
     session.setKeepAlive(true);
 
     // Handle the session
