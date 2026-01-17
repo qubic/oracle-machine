@@ -61,7 +61,7 @@ void Logger::init(bool logToConsole, const char* filePath)
     std::lock_guard<std::mutex> lk(g_mutex);
     if (filePath)
     {
-        gLogFile.open(filePath, std::ios::app);
+        gLogFile.open(filePath, std::ios::out | std::ios::trunc);
         if (gLogFile.is_open())
         {
             glogToFile = true;
