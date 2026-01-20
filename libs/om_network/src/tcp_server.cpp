@@ -338,9 +338,21 @@ void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 
     // Log session duration
     auto duration = std::chrono::duration_cast<std::chrono::seconds>(
-        std::chrono::steady_clock::now() - startTime).count();
-    OM_LOG_INFO() << "Session " << clientIP << " duration: " << duration << "s, "
-                  << "sent=" << session.getBytesSent() << ", recv=" << session.getBytesReceived();
+    std::chrono::steady_clock::now() - startTime).count();
+
+    auto bytesSent = session.getBytesSent();
+    auto bytesReceived = session.getBytesReceived();
+
+    if (bytesSent == 0 && bytesReceived == 0)
+    {
+        OM_LOG_WARNING() << "Session " << clientIP << " ZOMBIE: duration=" << duration 
+                        << "s (no data exchanged)";
+    }
+    else
+    {
+        OM_LOG_INFO() << "Session " << clientIP << " duration: " << duration << "s, "
+                    << "sent=" << bytesSent << ", recv=" << bytesReceived;
+    }
 
     // Mark this thread as finished for cleanup
     {

@@ -97,13 +97,18 @@ bool NodeConnection::sendResponseToNode(
     // Send header
     if (!session.sendData((const uint8_t*)&header, sizeof(header)))
     {
+        OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (header)";
         return false;
     }
 
     // Send payload
     if (payload_size > 0 && payload != nullptr)
     {
-        return session.sendData(payload, payload_size);
+        if (!session.sendData(payload, payload_size))
+        {
+            OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (payload)";
+            return false;
+        }
     }
 
     OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
