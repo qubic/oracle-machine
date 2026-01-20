@@ -87,8 +87,6 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
-
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
     RequestResponseHeader header;
@@ -107,6 +105,8 @@ bool NodeConnection::sendResponseToNode(
     {
         return session.sendData(payload, payload_size);
     }
+
+    OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
 
     return true;
 }
