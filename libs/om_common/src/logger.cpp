@@ -45,9 +45,9 @@ std::string timestamp()
 
     std::tm tm;
 #if defined(_WIN32)
-    localtime_s(&tm, &tt);
+    gmtime_s(&tm, &tt);   // (UTC)
 #else
-    localtime_r(&tt, &tm);
+    gmtime_r(&tt, &tm);   // (UTC)
 #endif
 
     std::ostringstream ss;
