@@ -30,11 +30,11 @@ export QUBIC_NODES=192.168.1.2,192.168.1.3
 export PRICE_SERVICE_HOST=192.168.1.4
 export PRICE_SERVICE_PORT=31842
 
-# Weather Oracle Service
-# For Docker: use service name (e.g., weather-oracle-service)
+# Mock Oracle Service
+# For Docker: use service name (e.g., mock-oracle-service)
 # For Local:  use IP address (e.g., 127.0.0.1)
-export WEATHER_SERVICE_HOST=192.168.1.5
-export WEATHER_SERVICE_PORT=31843
+export MOCK_SERVICE_HOST=192.168.1.5
+export MOCK_SERVICE_PORT=31843
 
 # -----------------------------------------------------------------------------
 # Docker Settings (only used when running with docker compose)

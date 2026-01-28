@@ -10,6 +10,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <set>
 
 #ifdef _MSC_VER
 #include <Winsock2.h>
@@ -32,7 +33,7 @@ public:
     using SessionHandler =
         std::function<void(Session& session)>; // handle session, main process logic
 
-    TcpServer(const std::string& bindAddress, uint16_t port);
+    TcpServer(const std::string& bindAddress, uint16_t port, int timeOutMs = 120000);
     ~TcpServer();
 
     // Set callbacks
@@ -57,6 +58,7 @@ private:
 
     std::string _bindAddress;
     uint16_t _port;
+    int _timeoutMs;
     int _serverFD;
 
     std::atomic<bool> _running;
@@ -69,6 +71,7 @@ private:
     std::mutex _clientFDsMutex;
 
     std::mutex _threadsMutex;
+    std::set<std::thread::id> _finishedThreadIds; 
 
     // Callbacks
     ConnectionFilter _connectionFilter;

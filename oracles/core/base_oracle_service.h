@@ -55,6 +55,7 @@ class Session;
 class BaseOracleService
 {
 public:
+    static constexpr int TIME_OUT_MS = 600000;
     BaseOracleService(
         const std::string& hostName,
         const uint16_t hostPort,

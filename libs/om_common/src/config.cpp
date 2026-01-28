@@ -90,24 +90,28 @@ void Config::loadFromEnv()
     setSource(&_nodes, getSource(nodesStr));
 
     // Interfaces.
-    // TODO: remove magic numbers
     _interfaces.clear();
-    _interfaces.resize(2);
+    //_interfaces.resize(MAX_ORACLE_INTERFACES_SUPPORT);
 
     // Price interface (index 0)
     {
-        _interfaces[0].interfaceIndex = 0;
-        _interfaces[0].interfaceName = "Price";
-        getStr(ConfigEnv::PRICE_SERVICE_HOST, ConfigDefaults::INTERFACES[_interfaces[0].interfaceIndex].host, _interfaces[0].serviceHost);
-        getUint16(ConfigEnv::PRICE_SERVICE_PORT, ConfigDefaults::INTERFACES[_interfaces[0].interfaceIndex].port, _interfaces[0].servicePort);
+        InterfaceEndpoint interfaceEndpoint;
+
+        interfaceEndpoint.interfaceIndex = PRICE_ORACLE_INTERFACE_INDEX;
+        interfaceEndpoint.interfaceName = "Price";
+        getStr(ConfigEnv::PRICE_SERVICE_HOST, ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].host, interfaceEndpoint.serviceHost);
+        getUint16(ConfigEnv::PRICE_SERVICE_PORT, ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].port, interfaceEndpoint.servicePort);
+        _interfaces.push_back(interfaceEndpoint);
     }
 
-    // Weather interface (index 1)
+    // Mock interface (index 1)
     {
-        _interfaces[1].interfaceIndex = 1;
-        _interfaces[1].interfaceName = "Weather";
-        getStr(ConfigEnv::WEATHER_SERVICE_HOST, ConfigDefaults::INTERFACES[_interfaces[1].interfaceIndex].host, _interfaces[1].serviceHost);
-        getUint16(ConfigEnv::WEATHER_SERVICE_PORT, ConfigDefaults::INTERFACES[_interfaces[1].interfaceIndex].port,  _interfaces[1].servicePort);
+        InterfaceEndpoint interfaceEndpoint;
+        interfaceEndpoint.interfaceIndex = MOCK_ORACLE_INTERFACE_INDEX;
+        interfaceEndpoint.interfaceName = "Mock";
+        getStr(ConfigEnv::MOCK_SERVICE_HOST, ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].host, interfaceEndpoint.serviceHost);
+        getUint16(ConfigEnv::MOCK_SERVICE_PORT, ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].port, interfaceEndpoint.servicePort);
+        _interfaces.push_back(interfaceEndpoint);
     }
 
     print();

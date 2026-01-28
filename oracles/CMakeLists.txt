@@ -17,6 +17,10 @@ else()
     message(STATUS "libcurl: NOT FOUND")
 endif()
 
+# Mock oracle
+message(STATUS "Build mock service")
+add_subdirectory(mock)
+
 # Below services depend on CURL
 if(CURL_FOUND)
     message(STATUS "Build price service")

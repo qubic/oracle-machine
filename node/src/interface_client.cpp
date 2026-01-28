@@ -338,6 +338,8 @@ void InterfaceClient::workerThread()
 
 bool InterfaceClient::processQueryRequest(const QueryRequest& request, InterfaceQueryResult& result)
 {
+    auto startTime = std::chrono::steady_clock::now();
+
     _totalQueries.fetch_add(1);
 
     // Ensure connected
@@ -398,8 +400,12 @@ bool InterfaceClient::processQueryRequest(const QueryRequest& request, Interface
         result.valid = true;
     }
 
+    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(
+                       std::chrono::steady_clock::now() - startTime)
+                       .count();
+
     OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Request #" << request.requestID
-                   << " completed successfully";
+                   << " completed in " << elapsed << "ms";
     return true;
 }
 

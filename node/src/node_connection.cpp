@@ -44,7 +44,7 @@ static bool isNodeIPAllowed(const ::sockaddr_in& addr)
 
 NodeConnection::NodeConnection(const std::string& bind_address, uint16_t port)
 {
-    _tcpServer = std::make_unique<TcpServer>(bind_address, port);
+    _tcpServer = std::make_unique<TcpServer>(bind_address, port, TIME_OUT_MS);
 
     // Set connection filter to validate allowed IPs
     _tcpServer->setConnectionFilter(
@@ -87,8 +87,6 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
-
     // TODO: check if we need to combine the header and payload into a single buffer for sending
 
     RequestResponseHeader header;
@@ -99,14 +97,21 @@ bool NodeConnection::sendResponseToNode(
     // Send header
     if (!session.sendData((const uint8_t*)&header, sizeof(header)))
     {
+        OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (header)";
         return false;
     }
 
     // Send payload
     if (payload_size > 0 && payload != nullptr)
     {
-        return session.sendData(payload, payload_size);
+        if (!session.sendData(payload, payload_size))
+        {
+            OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (payload)";
+            return false;
+        }
     }
+
+    OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();
 
     return true;
 }
@@ -115,8 +120,6 @@ bool NodeConnection::sendResponseToNode(
 void NodeConnection::handleSession(Session& session)
 {
     std::vector<uint8_t> buffer(0xFFFF);
-
-    OM_LOG_DEBUG() << "New Node Session: " << session.getRemoteIP();
 
     while (session.isActive())
     {
@@ -145,14 +148,7 @@ void NodeConnection::handleSession(Session& session)
             break;
         }
 
-        // Check if this is an OracleMachineQuery
-        if (header.type() != OracleMachineQuery::type)
-        {
-            // Skipping unknown message types
-            continue;
-        }
-
-        // Receive Payload
+        // Receive Payload - consume payload for whaterver packet
         int payload_size = (int)packet_size - sizeof(header);
         if (payload_size > 0)
         {
@@ -163,6 +159,14 @@ void NodeConnection::handleSession(Session& session)
                 OM_LOG_ERROR() << "Failed to receive payload";
                 break;
             }
+        }
+
+        // Check if this is an OracleMachineQuery and do further process
+        if (header.type() != OracleMachineQuery::type())
+        {
+            OM_LOG_DEBUG() << "Received unexpetected message type. " << (int)header.type();
+            // Skipping unknown message types
+            continue;
         }
 
         // Process Request
@@ -176,7 +180,7 @@ void NodeConnection::handleSession(Session& session)
             if (!response.empty())
             {
                 sendResponseToNode(
-                    session, OracleMachineReply::type, response.data(), response.size());
+                    session, OracleMachineReply::type(), response.data(), response.size());
             }
         }
 

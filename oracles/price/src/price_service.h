@@ -1,9 +1,12 @@
 #pragma once
 
 #include "base_oracle_service.h"
-
+#include "om_common/config.h"
 #include "om_common/qpi_adapter.h"
+
+#define ORACLE_INTERFACE_INDEX PRICE_ORACLE_INTERFACE_INDEX
 #include "oracle_interfaces/Price.h"
+#undef ORACLE_INTERFACE_INDEX
 
 #include <map>
 #include <memory>

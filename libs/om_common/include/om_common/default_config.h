@@ -24,7 +24,7 @@ struct InterfaceDefault
 
 constexpr InterfaceDefault INTERFACES[] = {
     {0, "Price", "0.0.0.0", 9001},
-    {1, "Weather", "0.0.0.0", 9002},
+    {1, "Mock", "0.0.0.0", 9002},
     // Add more interfaces here
 };
 constexpr uint32_t INTERFACE_COUNT = sizeof(INTERFACES) / sizeof(INTERFACES[0]);

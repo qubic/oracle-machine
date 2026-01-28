@@ -25,8 +25,13 @@ typedef int socklen_t;
 namespace oracle
 {
 
-TcpServer::TcpServer(const std::string& bind_address, uint16_t port) :
-    _bindAddress(bind_address), _port(port), _serverFD(-1), _running(false), _stopRequested(false)
+TcpServer::TcpServer(const std::string& bind_address, uint16_t port, int timeoutMs) :
+    _bindAddress(bind_address),
+    _port(port),
+    _timeoutMs(timeoutMs),
+    _serverFD(-1),
+    _running(false),
+    _stopRequested(false)
 {
 #ifdef _MSC_VER
     WSADATA wsa_data;
@@ -132,18 +137,30 @@ bool TcpServer::start()
 
 void TcpServer::cleanupFinishedThreads()
 {
-    std::lock_guard<std::mutex> lock(_threadsMutex);
-    auto it = _clientThreads.begin();
-    while (it != _clientThreads.end())
+    std::vector<std::thread> threadsToJoin;
     {
-        if (it->joinable())
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        auto it = _clientThreads.begin();
+        while (it != _clientThreads.end())
         {
-            it->join();
-            it = _clientThreads.erase(it);
+            if (_finishedThreadIds.count(it->get_id()) > 0)
+            {
+                threadsToJoin.push_back(std::move(*it)); 
+                _finishedThreadIds.erase(it->get_id());
+                it = _clientThreads.erase(it);
+            }
+            else
+            {
+                ++it;
+            }
         }
-        else
+    }
+
+    for (auto& t : threadsToJoin)
+    {
+        if (t.joinable())
         {
-            ++it;
+            t.join();
         }
     }
 }
@@ -196,7 +213,6 @@ void TcpServer::stop()
 
     // Wait for all client threads cleanup
     {
-        std::lock_guard<std::mutex> lock(_threadsMutex);
         OM_LOG_INFO() << "Waiting for " << _clientThreads.size() << " client threads..." ;
         for (auto& t : _clientThreads)
         {
@@ -205,7 +221,12 @@ void TcpServer::stop()
                 t.join();
             }
         }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
         _clientThreads.clear();
+        _finishedThreadIds.clear();
     }
 
     {
@@ -301,17 +322,43 @@ void TcpServer::acceptLoop()
 
 void TcpServer::clientThread(int clientFd, const std::string& clientIP)
 {
+     auto startTime = std::chrono::steady_clock::now();
+     
     // Create Session object (It takes ownership of client_fd)
     Session session(clientFd, clientIP, 0);
 
-    // Set the timeout 2 minutes per operation
-    session.setTimeout(120000); 
+    // Set the timeout per operation
+    session.setTimeout(_timeoutMs); 
     
     // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
     session.setKeepAlive(true);
 
     // Handle the session
     handleSession(session);
+
+    // Log session duration
+    auto duration = std::chrono::duration_cast<std::chrono::seconds>(
+    std::chrono::steady_clock::now() - startTime).count();
+
+    auto bytesSent = session.getBytesSent();
+    auto bytesReceived = session.getBytesReceived();
+
+    if (bytesSent == 0 && bytesReceived == 0)
+    {
+        OM_LOG_WARNING() << "Session " << clientIP << " ZOMBIE: duration=" << duration 
+                        << "s (no data exchanged)";
+    }
+    else
+    {
+        OM_LOG_INFO() << "Session " << clientIP << " duration: " << duration << "s, "
+                    << "sent=" << bytesSent << ", recv=" << bytesReceived;
+    }
+
+    // Mark this thread as finished for cleanup
+    {
+        std::lock_guard<std::mutex> lock(_threadsMutex);
+        _finishedThreadIds.insert(std::this_thread::get_id());
+    }
 
     // Cleanup - remove from active list
     removeClientFD(clientFd);

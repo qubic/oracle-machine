@@ -41,7 +41,7 @@ BaseOracleService::BaseOracleService(
     OM_LOG_DEBUG() << "  Query packet size: " << _queryPacketSize << " bytes";
     OM_LOG_DEBUG() << "  Reply packet size: " << _replyPacketSize << " bytes";
 
-    _server = std::make_unique<TcpServer>(hostName, hostPort);
+    _server = std::make_unique<TcpServer>(hostName, hostPort, TIME_OUT_MS);
 
     // Set session handler
     _server->setSessionHandler([this](Session& session) { handleSession(session); });
@@ -119,7 +119,8 @@ void BaseOracleService::handleSession(Session& session)
         {
             OM_LOG_ERROR() << "[" << _serviceName << "] Incomplete packet: " << received
                            << " bytes (expected " << _queryPacketSize << ")";
-            continue;
+            // Packet is corrupted
+            break;
         }
 
         // Parse query packet
@@ -185,7 +186,7 @@ bool BaseOracleService::parseQueryPacket(const uint8_t* data, size_t size, Query
     offset += REQUEST_RESPONSE_HEADER_SIZE;
 
     // Validate header
-    if (packet.header.type() != OracleMachineQuery::type)
+    if (packet.header.type() != OracleMachineQuery::type())
     {
         OM_LOG_ERROR() << "[" << _serviceName
                        << "] Invalid message type: " << static_cast<int>(packet.header.type());

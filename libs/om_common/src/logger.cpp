@@ -45,9 +45,9 @@ std::string timestamp()
 
     std::tm tm;
 #if defined(_WIN32)
-    localtime_s(&tm, &tt);
+    gmtime_s(&tm, &tt);   // (UTC)
 #else
-    localtime_r(&tt, &tm);
+    gmtime_r(&tt, &tm);   // (UTC)
 #endif
 
     std::ostringstream ss;
@@ -61,7 +61,7 @@ void Logger::init(bool logToConsole, const char* filePath)
     std::lock_guard<std::mutex> lk(g_mutex);
     if (filePath)
     {
-        gLogFile.open(filePath, std::ios::app);
+        gLogFile.open(filePath, std::ios::out | std::ios::trunc);
         if (gLogFile.is_open())
         {
             glogToFile = true;
