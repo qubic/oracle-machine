@@ -49,7 +49,7 @@ class Session;
  * Usage:
  *   1. Inherit from BaseOracleService
  *   2. Implement processInterfaceQuery()
- *   3. Use start for startting the service
+ *   3. Use start for starting the service
  *   4. Use waitForShutdown for stopping with signal
  */
 class BaseOracleService
@@ -95,7 +95,7 @@ protected:
      *
      * @param queryPayload Interface-specific query payload
      * @param replyPayload Output buffer for reply payload
-     * @return error_flags (0 for success, non-zero for error)
+     * @return error flags (RETURN_NO_ERROR for success, non-zero for error, see OracleErrorFlags)
      *
      * This method should:
      * 1. Parse the query payload

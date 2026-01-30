@@ -64,6 +64,23 @@
 // Include Oracle Interface definitions
 #include "oracle_core/oracle_interfaces_def.h"
 
+/**
+ * Error flags returned by OM with oracle reply.
+ *
+ * The return value is a 2-byte error bit mask. So multiple errors can be combined with bitwise or `|`.
+ * RETURN_NO_ERROR is the absence of any error flag. In consequence it cannot be combined with one of the error flags.
+ */
+enum OracleErrorFlags : uint16_t
+{
+    RETURN_NO_ERROR = 0,                                        ///< No error; returned oracle reply is valid.
+    RETURN_ERROR_INVALID_ORACLE = ORACLE_FLAG_INVALID_ORACLE,   ///< Oracle (data source) in query is invalid.
+    RETURN_ERROR_ORACLE_UNAVAIL = ORACLE_FLAG_ORACLE_UNAVAIL,   ///< Oracle (data source) isn't available at the moment.
+    RETURN_ERROR_INVALID_TIME = ORACLE_FLAG_INVALID_TIME,       ///< Time in query was invalid.
+    RETURN_ERROR_INVALID_PLACE = ORACLE_FLAG_INVALID_PLACE,     ///< Place in query was invalid.
+    RETURN_ERROR_INVALID_ARG = ORACLE_FLAG_INVALID_ARG,         ///< An argument in query was invalid.
+};
+
+
 // Some empty implementations of QPI functions to get rid of warnings
 void QPI::AssetIssuanceIterator::begin(const QPI::AssetIssuanceSelect&) {}
 QPI::uint64 QPI::AssetIssuanceIterator::assetName() const { return 0; }
