@@ -53,7 +53,7 @@ MockPriceProvider::MockPriceProvider() : PriceProvider("MockProvider")
     OM_LOG_INFO() << "[" << _name << "] Initialized with default mock prices";
 }
 
-bool MockPriceProvider::getPrice(
+uint16_t MockPriceProvider::getPrice(
     const std::string& currency1,
     const std::string& currency2,
     int64_t& numerator,
@@ -70,11 +70,11 @@ bool MockPriceProvider::getPrice(
         denominator = it->second.second;
         OM_LOG_DEBUG() << "[" << _name << "] Price found: " << pair << " = " << numerator << "/"
                        << denominator;
-        return true;
+        return RETURN_NO_ERROR;
     }
 
     OM_LOG_ERROR() << "[" << _name << "] Price not found: " << pair;
-    return false;
+    return RETURN_ERROR_INVALID_ARG;
 }
 
 void MockPriceProvider::setPrice(const std::string& pair, int64_t num, int64_t denom)
@@ -129,7 +129,7 @@ std::string CoinGeckoPriceProvider::getCoinId(const std::string& currency)
     return "";
 }
 
-bool CoinGeckoPriceProvider::getPrice(
+uint16_t CoinGeckoPriceProvider::getPrice(
     const std::string& currency1,
     const std::string& currency2,
     int64_t& numerator,
@@ -150,7 +150,7 @@ bool CoinGeckoPriceProvider::getPrice(
                 denominator = it->second.denominator;
                 OM_LOG_DEBUG() << "[" << _name << "] Cache hit: " << pair << " = " << numerator
                                << "/" << denominator;
-                return true;
+                return RETURN_NO_ERROR;
             }
         }
     }
@@ -158,7 +158,8 @@ bool CoinGeckoPriceProvider::getPrice(
     // Cache miss - fetch from API
     OM_LOG_DEBUG() << "[" << _name << "] Cache miss - fetching " << pair;
 
-    if (fetchFromAPI(currency1, currency2, numerator, denominator))
+    auto returnCode = fetchFromAPI(currency1, currency2, numerator, denominator);
+    if (returnCode == RETURN_NO_ERROR)
     {
         // Update cache
         CacheEntry entry;
@@ -168,14 +169,12 @@ bool CoinGeckoPriceProvider::getPrice(
 
         std::lock_guard<std::mutex> lock(_cacheMutex);
         _cache[pair] = entry;
-
-        return true;
     }
 
-    return false;
+    return returnCode;
 }
 
-bool CoinGeckoPriceProvider::fetchFromAPI(
+uint16_t CoinGeckoPriceProvider::fetchFromAPI(
     const std::string& currency1,
     const std::string& currency2,
     int64_t& numerator,
@@ -205,7 +204,7 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
     if (coinId.empty())
     {
         OM_LOG_ERROR() << "[" << _name << "] Unknown currency: " << currency1;
-        return false;
+        return RETURN_ERROR_INVALID_ARG;
     }
 
     // Convert currency2 to lowercase
@@ -230,7 +229,7 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
     if (!curl)
     {
         OM_LOG_ERROR() << "[" << _name << "] Failed to initialize curl";
-        return false;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 
     // Response buffer
@@ -271,7 +270,7 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
     {
         OM_LOG_ERROR() << "[" << _name << "] Curl error: " << curl_easy_strerror(res);
         curl_easy_cleanup(curl);
-        return false;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 
     // Check HTTP status
@@ -283,7 +282,7 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
     {
         OM_LOG_ERROR() << "[" << _name << "] HTTP error: " << httpCode;
         OM_LOG_ERROR() << "  Response: " << response;
-        return false;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 
     // Parse JSON response (simple parsing for this specific format)
@@ -295,7 +294,7 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
     if (pos == std::string::npos)
     {
         OM_LOG_ERROR() << "[" << _name << "] Price not found in response";
-        return false;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 
     pos += searchKey.length();
@@ -316,12 +315,12 @@ bool CoinGeckoPriceProvider::fetchFromAPI(
         OM_LOG_DEBUG() << "[" << _name << "] Price fetched: " << currency1 << "/" << currency2
                        << " = " << price << " (" << numerator << "/" << denominator << ")";
 
-        return true;
+        return RETURN_NO_ERROR;
     }
     catch (const std::exception& e)
     {
         OM_LOG_ERROR() << "[" << _name << "] Failed to parse price: " << e.what();
-        return false;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 }
 
@@ -369,7 +368,6 @@ void PriceService::registerProvider(
 
 // ============================================================================
 // BaseOracleService Implementation
-// TODO: uint16_t is the error type get from core code, verify it
 uint16_t PriceService::processInterfaceQuery(
     const std::vector<uint8_t>& queryPayload,
     std::vector<uint8_t>& replyPayload)
@@ -378,7 +376,7 @@ uint16_t PriceService::processInterfaceQuery(
     if (queryPayload.size() < PRICE_ORACLE_QUERY_SIZE)
     {
         OM_LOG_ERROR() << "[Price] Invalid query size: " << queryPayload.size();
-        return 1; // Parse error
+        return RETURN_ERROR_INVALID_ARG; // Parse error
     }
 
     Price::OracleQuery query;
@@ -408,16 +406,17 @@ uint16_t PriceService::processInterfaceQuery(
     if (!provider)
     {
         OM_LOG_ERROR() << "[Price] Unknown oracle provider: " << oracleId;
-        return 2; // Provider not found
+        return RETURN_ERROR_INVALID_ORACLE; // Provider not found
     }
 
     // Get price
     Price::OracleReply reply;
     int64_t numerator = 0;
     int64_t denominator = 1;
-    if (!provider->getPrice(currency1, currency2, numerator, denominator))
+    uint16_t returnValue = provider->getPrice(currency1, currency2, numerator, denominator);
+    if (returnValue != RETURN_NO_ERROR)
     {
-        return 3; // Price not available
+        return returnValue; // Price not available
     }
 
     reply.numerator = numerator;
@@ -429,7 +428,7 @@ uint16_t PriceService::processInterfaceQuery(
     replyPayload.resize(sizeof(Price::OracleReply));
     std::memcpy(replyPayload.data(), &reply, sizeof(Price::OracleReply));
 
-    return 0;
+    return RETURN_NO_ERROR;
 }
 
 } // namespace oracle

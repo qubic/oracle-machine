@@ -224,7 +224,7 @@ std::vector<uint8_t> BaseOracleService::buildReplyPacket(
     // Build RequestResponseHeader
     RequestResponseHeader header;
     header.checkAndSetSize(_replyPacketSize);
-    header.setType(OracleMachineReply::type);
+    header.setType(OracleMachineReply::type());
     header.setDejavu(0);
     std::memcpy(packet.data() + offset, &header, REQUEST_RESPONSE_HEADER_SIZE);
     offset += REQUEST_RESPONSE_HEADER_SIZE;

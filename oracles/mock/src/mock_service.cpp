@@ -34,11 +34,11 @@ uint16_t MockService::processInterfaceQuery(
     const std::vector<uint8_t>& queryPayload,
     std::vector<uint8_t>& replyPayload)
 {
-    // Parse the querry
+    // Parse the query
     if (queryPayload.size() < MOCK_ORACLE_QUERY_SIZE)
     {
         OM_LOG_ERROR() << "[Mock] Invalid query size: " << queryPayload.size();
-        return 1; // Parse error
+        return RETURN_ERROR_INVALID_ARG; // Parse error
     }
 
     Mock::OracleQuery query;

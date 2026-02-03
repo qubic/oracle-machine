@@ -25,5 +25,7 @@ add_subdirectory(mock)
 if(CURL_FOUND)
     message(STATUS "Build price service")
     add_subdirectory(price)
+else()
+    message(WARNING "Price service excluded because libcurl has not been found!")
 endif()
 

@@ -36,9 +36,9 @@ public:
      * @param currency2 Quote currency (e.g., "USD")
      * @param numerator Output: price numerator
      * @param denominator Output: price denominator
-     * @return true if price available, false otherwise
+     * @return RETURN_NO_ERROR on success, another value of OracleErrorFlags otherwise.
      */
-    virtual bool getPrice(
+    virtual uint16_t getPrice(
         const std::string& currency1,
         const std::string& currency2,
         int64_t& numerator,
@@ -56,7 +56,7 @@ class MockPriceProvider : public PriceProvider
 public:
     MockPriceProvider();
 
-    bool getPrice(
+    uint16_t getPrice(
         const std::string& currency1,
         const std::string& currency2,
         int64_t& numerator,
@@ -78,7 +78,7 @@ class CoinGeckoPriceProvider : public PriceProvider
 public:
     CoinGeckoPriceProvider(const std::string& apiKey = "", const std::string& apiType = "free");
 
-    bool getPrice(
+    uint16_t getPrice(
         const std::string& currency1,
         const std::string& currency2,
         int64_t& numerator,
@@ -105,7 +105,7 @@ private:
     static constexpr double RATE_LIMIT_DELAY = 2.0; // 2 seconds
 
     std::string getCoinId(const std::string& currency);
-    bool fetchFromAPI(
+    uint16_t fetchFromAPI(
         const std::string& currency1,
         const std::string& currency2,
         int64_t& numerator,
