@@ -4,6 +4,11 @@ project(price_oracle_service)
 set(SERVICE_SOURCES
     ${SERVICE_CORE_DIR}/base_oracle_service.cpp
     src/price_service.cpp
+    src/exchange_provider.cpp
+    src/binance_provider.cpp
+    src/mexc_provider.cpp
+    src/gate_provider.cpp
+    src/combined_provider.cpp
 )
 
 # Create price oracle service executable

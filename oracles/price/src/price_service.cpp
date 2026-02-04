@@ -1,10 +1,15 @@
 #include "price_service.h"
+#include "binance_provider.h"
+#include "mexc_provider.h"
+#include "gate_provider.h"
+#include "combined_provider.h"
 #include "om_common/logger.h"
 
 #include <algorithm>
 #include <chrono>
 #include <cstring>
 #include <ctime>
+#include <iomanip>
 #include <iostream>
 #include <sstream>
 #include <thread>
@@ -18,14 +23,64 @@ namespace oracle
 static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime)
 {
     std::ostringstream ss;
-    ss << rQpiDateTime.getYear();
-    ss << rQpiDateTime.getMonth();
-    ss << rQpiDateTime.getDay();
-    ss << rQpiDateTime.getHour();
-    ss << rQpiDateTime.getMinute();
-    ss << rQpiDateTime.getSecond();
+    ss << rQpiDateTime.getYear() << "-"
+       << std::setfill('0') << std::setw(2) << (int)rQpiDateTime.getMonth() << "-"
+       << std::setw(2) << (int)rQpiDateTime.getDay() << " "
+       << std::setw(2) << (int)rQpiDateTime.getHour() << ":"
+       << std::setw(2) << (int)rQpiDateTime.getMinute() << ":"
+       << std::setw(2) << (int)rQpiDateTime.getSecond() << " UTC";
 
     return ss.str();
+}
+
+// Convert QPI::DateAndTime to Unix timestamp in milliseconds (UTC)
+static int64_t dateTimeToUnixMs(const QPI::DateAndTime& dt)
+{
+    // Build tm struct (UTC)
+    struct tm tm = {};
+    tm.tm_year = dt.getYear() - 1900;  // tm_year is years since 1900
+    tm.tm_mon = dt.getMonth() - 1;      // tm_mon is 0-11
+    tm.tm_mday = dt.getDay();
+    tm.tm_hour = dt.getHour();
+    tm.tm_min = dt.getMinute();
+    tm.tm_sec = dt.getSecond();
+    tm.tm_isdst = 0;  // Not daylight saving
+
+    // Convert to Unix timestamp (UTC) using timegm (POSIX) or _mkgmtime (Windows)
+#ifdef _WIN32
+    time_t t = _mkgmtime(&tm);
+#else
+    time_t t = timegm(&tm);
+#endif
+
+    if (t == -1)
+    {
+        return 0;  // Invalid date
+    }
+
+    // Convert to milliseconds and add the millisecond component
+    return static_cast<int64_t>(t) * 1000 + dt.getMillisec();
+}
+
+// Normalize oracle ID for combined oracles (e.g., "gate_binance" -> "binance_gate")
+// Sorts exchange names alphabetically so order doesn't matter
+static std::string normalizeOracleId(const std::string& oracleId)
+{
+    size_t underscorePos = oracleId.find('_');
+    if (underscorePos == std::string::npos)
+    {
+        return oracleId;
+    }
+
+    std::string first = oracleId.substr(0, underscorePos);
+    std::string second = oracleId.substr(underscorePos + 1);
+
+    if (first > second)
+    {
+        std::swap(first, second);
+    }
+
+    return first + "_" + second;
 }
 
 std::string PriceService::bytesToString(const char* data, size_t maxLen)
@@ -338,12 +393,51 @@ PriceService::PriceService(const std::string& rHostname, uint16_t hostPort) :
     // Register default providers
     registerProvider("mock", std::make_shared<MockPriceProvider>());
 
-    // Register CoinGecko if API key is available
-    const char* apiKey = std::getenv("COINGECKO_API_KEY");
-    const char* apiType = std::getenv("COINGECKO_API_TYPE");
+    // Register CoinGecko
+    const char* coingeckoApiKey = std::getenv("COINGECKO_API_KEY");
+    const char* coingeckoApiType = std::getenv("COINGECKO_API_TYPE");
     registerProvider(
         "coingecko",
-        std::make_shared<CoinGeckoPriceProvider>(apiKey ? apiKey : "", apiType ? apiType : "free"));
+        std::make_shared<CoinGeckoPriceProvider>(
+            coingeckoApiKey ? coingeckoApiKey : "",
+            coingeckoApiType ? coingeckoApiType : "free"));
+
+    // Register exchange providers
+    const char* binanceApiKey = std::getenv("BINANCE_API_KEY");
+    const char* mexcApiKey = std::getenv("MEXC_API_KEY");
+    const char* gateApiKey = std::getenv("GATE_API_KEY");
+
+    // Single source providers
+    registerProvider(
+        "binance",
+        std::make_shared<BinancePriceProvider>(binanceApiKey ? binanceApiKey : ""));
+
+    registerProvider(
+        "mexc",
+        std::make_shared<MexcPriceProvider>(mexcApiKey ? mexcApiKey : ""));
+
+    registerProvider(
+        "gate",
+        std::make_shared<GatePriceProvider>(gateApiKey ? gateApiKey : ""));
+
+    // Combined providers (mean of 2 sources)
+    registerProvider(
+        "binance_mexc",
+        createBinanceMexcProvider(
+            binanceApiKey ? binanceApiKey : "",
+            mexcApiKey ? mexcApiKey : ""));
+
+    registerProvider(
+        "binance_gate",
+        createBinanceGateProvider(
+            binanceApiKey ? binanceApiKey : "",
+            gateApiKey ? gateApiKey : ""));
+
+    registerProvider(
+        "gate_mexc",  // Alphabetical order: g < m
+        createMexcGateProvider(
+            mexcApiKey ? mexcApiKey : "",
+            gateApiKey ? gateApiKey : ""));
 }
 
 PriceService::~PriceService()
@@ -387,11 +481,25 @@ uint16_t PriceService::processInterfaceQuery(
     std::string currency1 = bytesToString((const char*)query.currency1.m256i_i8, 32);
     std::string currency2 = bytesToString((const char*)query.currency2.m256i_i8, 32);
 
-    OM_LOG_DEBUG() << "  Query: oracle=" << oracleId << ", " << currency1 << "/" << currency2
-                   << ", timestamp=" << getTimeStampString(query.timestamp);
+    // Check if timestamp is zero (current price request)
+    bool isCurrentPrice = (query.timestamp.getYear() == 0 && query.timestamp.getMonth() == 0 &&
+                           query.timestamp.getDay() == 0 && query.timestamp.getHour() == 0 &&
+                           query.timestamp.getMinute() == 0 && query.timestamp.getSecond() == 0);
 
-    // Look for provider
+    if (isCurrentPrice)
+    {
+        OM_LOG_DEBUG() << "  Query: oracle=" << oracleId << ", " << currency1 << "/" << currency2
+                       << ", timestamp=0 (current price)";
+    }
+    else
+    {
+        OM_LOG_DEBUG() << "  Query: oracle=" << oracleId << ", " << currency1 << "/" << currency2
+                       << ", timestamp=" << getTimeStampString(query.timestamp);
+    }
+
+    // Look for provider (normalize to handle gate_binance == binance_gate)
     std::transform(oracleId.begin(), oracleId.end(), oracleId.begin(), ::tolower);
+    oracleId = normalizeOracleId(oracleId);
 
     std::shared_ptr<PriceProvider> provider;
     {
@@ -409,11 +517,20 @@ uint16_t PriceService::processInterfaceQuery(
         return RETURN_ERROR_INVALID_ORACLE; // Provider not found
     }
 
-    // Get price
+    // Convert query timestamp to Unix milliseconds (UTC)
+    // A zero timestamp (all fields = 0) means "current price" - keep timestampMs = 0
+    int64_t timestampMs = 0;
+    if (!isCurrentPrice)
+    {
+        timestampMs = dateTimeToUnixMs(query.timestamp);
+    }
+
+    // Get price at the specified timestamp
     Price::OracleReply reply;
     int64_t numerator = 0;
     int64_t denominator = 1;
-    uint16_t returnValue = provider->getPrice(currency1, currency2, numerator, denominator);
+    uint16_t returnValue = provider->getPriceAtTimestamp(
+        currency1, currency2, timestampMs, numerator, denominator);
     if (returnValue != RETURN_NO_ERROR)
     {
         return returnValue; // Price not available

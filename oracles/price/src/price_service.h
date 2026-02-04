@@ -30,7 +30,7 @@ public:
     virtual ~PriceProvider() = default;
 
     /**
-     * Get price for currency1/currency2.
+     * Get current price for currency1/currency2.
      *
      * @param currency1 Base currency (e.g., "BTC")
      * @param currency2 Quote currency (e.g., "USD")
@@ -43,6 +43,34 @@ public:
         const std::string& currency2,
         int64_t& numerator,
         int64_t& denominator) = 0;
+
+    /**
+     * Get price for currency1/currency2 at a specific UTC timestamp.
+     * Default implementation returns current price if timestampMs=0,
+     * otherwise returns RETURN_ERROR_INVALID_ARG (historical not supported).
+     *
+     * @param currency1 Base currency (e.g., "BTC")
+     * @param currency2 Quote currency (e.g., "USD")
+     * @param timestampMs UTC timestamp in milliseconds since epoch (0 = current price)
+     * @param numerator Output: price numerator
+     * @param denominator Output: price denominator
+     * @return RETURN_NO_ERROR on success, another value of OracleErrorFlags otherwise.
+     */
+    virtual uint16_t getPriceAtTimestamp(
+        const std::string& currency1,
+        const std::string& currency2,
+        int64_t timestampMs,
+        int64_t& numerator,
+        int64_t& denominator)
+    {
+        // timestampMs = 0 means get current price
+        if (timestampMs == 0)
+        {
+            return getPrice(currency1, currency2, numerator, denominator);
+        }
+        // Default: historical prices not supported
+        return RETURN_ERROR_INVALID_ARG;
+    }
 
     const std::string& getName() const { return _name; }
 
