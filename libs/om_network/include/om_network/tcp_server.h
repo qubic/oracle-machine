@@ -52,7 +52,7 @@ public:
 
 private:
     void acceptLoop();
-    void clientThread(int client_fd, const std::string& client_ip);
+    void clientThread(int client_fd, std::string client_ip);
     void removeClientFD(int client_fd);
     void cleanupFinishedThreads();
 

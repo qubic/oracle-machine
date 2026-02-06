@@ -320,7 +320,7 @@ void TcpServer::acceptLoop()
     }
 }
 
-void TcpServer::clientThread(int clientFd, const std::string& clientIP)
+void TcpServer::clientThread(int clientFd, std::string clientIP)
 {
      auto startTime = std::chrono::steady_clock::now();
      
