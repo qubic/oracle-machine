@@ -130,7 +130,7 @@ void NodeConnection::handleSession(Session& session)
         int received = session.receiveExact((uint8_t*)&header, sizeof(header));
         while (!received)
         {
-            OM_LOG_ERROR() << "No data received, trying again (IP: " << session.getRemoteIP() << ")";
+            // No data received, try again
             received = session.receiveExact((uint8_t*)&header, sizeof(header));
         }
 
