@@ -21,6 +21,10 @@
 #include <sys/socket.h>
 #endif
 
+#ifdef TRY_AGAIN
+#undef TRY_AGAIN
+#endif
+
 namespace oracle
 {
 class Session;
