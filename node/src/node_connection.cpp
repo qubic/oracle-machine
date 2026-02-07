@@ -128,6 +128,11 @@ void NodeConnection::handleSession(Session& session)
 
         // This will block until header is received, or TIMEOUT occurs (handled by Session)
         int received = session.receiveExact((uint8_t*)&header, sizeof(header));
+        while (!received)
+        {
+            // No data received, try again
+            received = session.receiveExact((uint8_t*)&header, sizeof(header));
+        }
 
         if (received != sizeof(header))
         {
