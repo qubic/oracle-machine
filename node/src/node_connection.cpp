@@ -128,6 +128,11 @@ void NodeConnection::handleSession(Session& session)
 
         // This will block until header is received, or TIMEOUT occurs (handled by Session)
         int received = session.receiveExact((uint8_t*)&header, sizeof(header));
+        while (!received)
+        {
+            OM_LOG_ERROR() << "No data received, trying again (IP: " << session.getRemoteIP() << ")";
+            received = session.receiveExact((uint8_t*)&header, sizeof(header));
+        }
 
         if (received != sizeof(header))
         {
