@@ -88,6 +88,8 @@ QPI::id QPI::AssetIssuanceIterator::issuer() const { return QPI::id::zero(); }
 void QPI::AssetOwnershipIterator::begin(const QPI::Asset&, const QPI::AssetOwnershipSelect&) {}
 void QPI::AssetPossessionIterator::begin(const QPI::Asset&, const QPI::AssetOwnershipSelect&, const QPI::AssetPossessionSelect&) {}
 template <typename T1, typename T2> void QPI::copyMemory(T1&, const T2&) {}
-void* __acquireScratchpad(unsigned long long size, bool initZero) {}
+void* __acquireScratchpad(unsigned long long size, bool initZero) { return nullptr; }
 void __releaseScratchpad(void* ptr) {}
-void addDebugMessageAssert(const char* message, const char* file, const unsigned int lineNumber) {}
+#ifndef NDEBUG
+static void addDebugMessageAssert(const char* message, const char* file, const unsigned int lineNumber) {}
+#endif
