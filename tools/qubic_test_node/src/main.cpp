@@ -572,7 +572,9 @@ int main(int argc, char* argv[])
         std::cout << "  Price::OracleQuery:    " << sizeof(PriceOracleQuery) << " bytes\n\n";
     }
 
-    uint64_t queryId = 1;
+    // generate random queryId to prevent wrong OM cache hits in subsequent calls of this program
+    srand(time(NULL));
+    uint64_t queryId = rand();
     int exitCode = 0;
 
     // Main query loop
