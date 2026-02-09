@@ -15,6 +15,7 @@
 #include <unistd.h>
 #endif
 
+#include <cerrno>
 #include <cstring>
 #include <iostream>
 
@@ -147,42 +148,71 @@ bool Session::sendData(const uint8_t* data, int size)
     return true;
 }
 
-int Session::receiveExact(uint8_t* buffer, int sz)
-{
-    if (!_active || _socketFD < 0)
-        return 0;
-
-    int total_received = 0;
-    while (sz > 0)
-    {
-        int received = recv(_socketFD, (char*)buffer + total_received, sz, 0);
-        if (received <= 0)
-        {
-            // 0 = Graceful close, -1 = Error (or timeout)
-            _active.store(false);
-            break;
-        }
-        total_received += received;
-        _bytesReceived += received;
-        sz -= received;
-    }
-    return total_received;
-}
-
+// Single recv call. Returns: >0 bytes received, 0 timeout, -1 error/close.
 int Session::receive(uint8_t* buffer, int sz)
 {
     if (!_active || _socketFD < 0)
-        return 0;
+        return -1;
 
     int received = recv(_socketFD, (char*)buffer, sz, 0);
-    if (received <= 0)
+    if (received > 0)
     {
-        _active.store(false);
-        return 0;
+        _bytesReceived += received;
+        return received;
     }
+    else if (received == 0)
+    {
+        // Graceful close by peer
+        OM_LOG_DEBUG() << "receive: graceful close by peer (IP: " << _remoteIP << ")";
+        _active.store(false);
+        return -1;
+    }
+    else // received < 0
+    {
+#ifdef _MSC_VER
+        int err = WSAGetLastError();
+        if (err == WSAETIMEDOUT || err == WSAEWOULDBLOCK)
+#else
+        if (errno == EAGAIN || errno == EWOULDBLOCK)
+#endif
+        {
+            // Socket timeout - connection still alive
+            OM_LOG_DEBUG() << "receive: timeout, no data (IP: " << _remoteIP << ")";
+            return 0;
+        }
+        // Real error
+#ifdef _MSC_VER
+        OM_LOG_ERROR() << "receive: recv error=" << err << " (IP: " << _remoteIP << ")";
+#else
+        OM_LOG_ERROR() << "receive: recv errno=" << errno << " (IP: " << _remoteIP << ")";
+#endif
+        _active.store(false);
+        return -1;
+    }
+}
 
-    _bytesReceived += received;
-    return received;
+// Loop until exactly sz bytes received. Returns: sz on success, 0 timeout, -1 error/close.
+int Session::receiveExact(uint8_t* buffer, int sz)
+{
+    int total_received = 0;
+    while (total_received < sz)
+    {
+        int received = receive(buffer + total_received, sz - total_received);
+        if (received > 0)
+        {
+            total_received += received;
+        }
+        else if (received == 0)
+        {
+            // Timeout - return what we have so far
+            return total_received;
+        }
+        else // -1: error or close
+        {
+            return (total_received > 0) ? total_received : -1;
+        }
+    }
+    return total_received;
 }
 
 void Session::forceShutdown()
