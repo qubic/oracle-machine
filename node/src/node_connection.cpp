@@ -130,9 +130,7 @@ void NodeConnection::handleSession(Session& session)
         int received = session.receiveExact((uint8_t*)&header, sizeof(header));
         while (!received)
         {
-            // No data received -> try again if session is still active
-            if (!session.isActive())
-                break;
+            // No data received, try again
             received = session.receiveExact((uint8_t*)&header, sizeof(header));
         }
 
