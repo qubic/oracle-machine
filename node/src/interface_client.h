@@ -51,7 +51,7 @@ public:
     /**
      * Constructor
      *
-     * @param interfaceIndex Interface type (0 = Price, 1 = Weather, etc.)
+     * @param interfaceIndex Interface type (0 = Price, 1 = Mock, etc.)
      * @param host Host of the aggregator service
      * @param port Port of the aggregator service
      */
