@@ -20,7 +20,9 @@ namespace oracle
 constexpr size_t PRICE_ORACLE_QUERY_SIZE = sizeof(Price::OracleQuery); // 32 + 8 + 32 + 32
 constexpr size_t PRICE_ORACLE_REPLY_SIZE = sizeof(Price::OracleReply); // 8 + 8
 
-static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime); 
+bool priceStringToRational(const std::string& priceStr, int64_t& numerator, int64_t& denominator);
+
+static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime);
 
 // Price Provider Interface
 class PriceProvider

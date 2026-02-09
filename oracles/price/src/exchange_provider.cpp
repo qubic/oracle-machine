@@ -129,14 +129,18 @@ uint16_t ExchangePriceProvider::getPriceAtTimestamp(
         return httpResult;
     }
 
-    double closePrice = 0.0;
-    uint16_t parseResult = parseKlineResponse(response, closePrice);
+    std::string closePriceString;
+    uint16_t parseResult = parseKlineResponse(response, closePriceString);
     if (parseResult != RETURN_NO_ERROR)
     {
         return parseResult;
     }
 
-    priceToRational(closePrice, numerator, denominator);
+    if (!priceStringToRational(closePriceString, numerator, denominator))
+    {
+        OM_LOG_ERROR() << "Failed to convert price stirng " << closePriceString << " to rational number";
+        return RETURN_ERROR_ORACLE_UNAVAIL;
+    }
 
     // Update cache
     {
@@ -149,7 +153,7 @@ uint16_t ExchangePriceProvider::getPriceAtTimestamp(
         _cache[cacheKey] = entry;
     }
 
-    OM_LOG_DEBUG() << "[" << _name << "] Price: " << closePrice
+    OM_LOG_DEBUG() << "[" << _name << "] Price: " << closePriceString
                    << " (" << numerator << "/" << denominator << ")";
 
     return RETURN_NO_ERROR;
@@ -228,13 +232,6 @@ uint16_t ExchangePriceProvider::httpGet(const std::string& url, std::string& res
     }
 
     return RETURN_NO_ERROR;
-}
-
-void ExchangePriceProvider::priceToRational(double price, int64_t& numerator, int64_t& denominator)
-{
-    // Use fixed 8 decimal places precision (10^8)
-    numerator = static_cast<int64_t>(std::round(price * PRICE_DENOMINATOR));
-    denominator = PRICE_DENOMINATOR;
 }
 
 } // namespace oracle

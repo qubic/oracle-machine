@@ -13,12 +13,65 @@
 #include <iostream>
 #include <sstream>
 #include <thread>
+#include <cmath>
 
 // For HTTP requests (using libcurl)
 #include <curl/curl.h>
 
 namespace oracle
 {
+
+bool priceStringToRational(const std::string& priceStr, int64_t& numerator, int64_t& denominator)
+{
+    // Try to convert string to rational directly
+    numerator = 0;
+    denominator = 1;
+    bool okay = true;
+    bool seenDot = false;
+    for (size_t i = 0; i < priceStr.size(); ++i)
+    {
+        char c = priceStr[i];
+        if (c >= '0' && c <= '9')
+        {
+            // regular digit
+            numerator = numerator * 10 + (c - '0');
+            if (seenDot)
+                denominator *= 10;
+        }
+        else if (c == '.' && !seenDot)
+        {
+            // decimal point
+            seenDot = true;
+        }
+        else
+        {
+            // unexpected character
+            okay = false;
+            break;
+        }
+    }
+    OM_LOG_DEBUG() << "priceStringToRational(): priceStr " << priceStr << ", num " << numerator << ", denom " << denominator << ", okay " << okay;
+    if (okay)
+        return true;
+
+    // Fallback solution
+    double price;
+    try
+    {
+        price = std::stod(priceStr);
+    }
+    catch (const std::exception& e)
+    {
+        return false;
+    }
+
+    // Use fixed 8 decimal places precision (10^8)
+    constexpr int64_t PRICE_DENOMINATOR = 100000000;
+    numerator = static_cast<int64_t>(std::round(price * PRICE_DENOMINATOR));
+    denominator = PRICE_DENOMINATOR;
+
+    return true;
+}
 
 static std::string getTimeStampString(const QPI::DateAndTime& rQpiDateTime)
 {
@@ -358,24 +411,17 @@ uint16_t CoinGeckoPriceProvider::fetchFromAPI(
     size_t endPos = response.find_first_of("},", pos);
     std::string priceStr = response.substr(pos, endPos - pos);
 
-    try
+    if (!priceStringToRational(priceStr, numerator, denominator))
     {
-        double price = std::stod(priceStr);
-
-        // Convert to rational number (numerator/denominator)
-        // For simplicity, use 6 decimal places of precision
-        numerator = static_cast<int64_t>(price * 1000000);
-        denominator = 1000000;
-
+        OM_LOG_ERROR() << "[" << _name << "] Failed to parse price: " << priceStr;
+        return RETURN_ERROR_ORACLE_UNAVAIL;
+    }
+    else
+    {
         OM_LOG_DEBUG() << "[" << _name << "] Price fetched: " << currency1 << "/" << currency2
-                       << " = " << price << " (" << numerator << "/" << denominator << ")";
+                       << " = " << priceStr << " (" << numerator << "/" << denominator << ")";
 
         return RETURN_NO_ERROR;
-    }
-    catch (const std::exception& e)
-    {
-        OM_LOG_ERROR() << "[" << _name << "] Failed to parse price: " << e.what();
-        return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 }
 

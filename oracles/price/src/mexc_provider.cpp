@@ -45,7 +45,7 @@ std::string MexcPriceProvider::formatSymbol(
 
 uint16_t MexcPriceProvider::parseKlineResponse(
     const std::string& response,
-    double& closePrice)
+    std::string& closePriceString)
 {
     // MEXC uses same kline format as Binance
     // [[openTime, open, high, low, close, volume, closeTime, ...], ...]
@@ -102,18 +102,8 @@ uint16_t MexcPriceProvider::parseKlineResponse(
         return RETURN_ERROR_ORACLE_UNAVAIL;
     }
 
-    std::string priceStr = response.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
-
-    try
-    {
-        closePrice = std::stod(priceStr);
-        return RETURN_NO_ERROR;
-    }
-    catch (const std::exception& e)
-    {
-        OM_LOG_ERROR() << "[MEXC] Failed to parse price: " << e.what();
-        return RETURN_ERROR_ORACLE_UNAVAIL;
-    }
+    closePriceString = response.substr(quoteStart + 1, quoteEnd - quoteStart - 1);
+    return RETURN_NO_ERROR;
 }
 
 } // namespace oracle

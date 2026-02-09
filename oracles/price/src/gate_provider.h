@@ -28,7 +28,7 @@ protected:
 
     uint16_t parseKlineResponse(
         const std::string& response,
-        double& closePrice) override;
+        std::string& closePriceString) override;
 
 private:
     static constexpr const char* BASE_URL = "https://api.gateio.ws";

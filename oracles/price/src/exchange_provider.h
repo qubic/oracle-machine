@@ -17,9 +17,6 @@ namespace oracle
 class ExchangePriceProvider : public PriceProvider
 {
 public:
-    // Fixed denominator for all exchange providers (10^8 = 100,000,000)
-    static constexpr int64_t PRICE_DENOMINATOR = 100000000;
-
     ExchangePriceProvider(
         const std::string& name,
         const std::string& baseUrl,
@@ -90,16 +87,13 @@ protected:
      */
     virtual uint16_t parseKlineResponse(
         const std::string& response,
-        double& closePrice) = 0;
+        std::string& closePriceString) = 0;
 
     // Common HTTP functionality
     uint16_t httpGet(const std::string& url, std::string& response);
 
     // Rate limiting
     void enforceRateLimit();
-
-    // Convert double price to numerator/denominator
-    static void priceToRational(double price, int64_t& numerator, int64_t& denominator);
 
     // Cache structure with timestamp support
     struct CacheEntry

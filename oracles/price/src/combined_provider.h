@@ -40,7 +40,6 @@ private:
 
     /**
      * Compute mean of two prices.
-     * Assumes both use the same denominator (PRICE_DENOMINATOR = 10^8).
      */
     static void computeMean(
         int64_t num1, int64_t denom1,

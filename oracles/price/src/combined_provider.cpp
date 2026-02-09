@@ -135,8 +135,7 @@ void CombinedPriceProvider::computeMean(
     int64_t& resultNum, int64_t& resultDenom)
 {
     // Mean of a/b and c/d = (a*d + c*b) / (2*b*d)
-    // Since all our providers use the same denominator (10^8),
-    // we can simplify: mean = (num1 + num2) / 2
+    // If both have the same denominator, we can simplify: mean = (num1 + num2) / 2
 
     if (denom1 == denom2)
     {
