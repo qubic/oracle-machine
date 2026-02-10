@@ -137,6 +137,11 @@ bool TcpServer::start()
 
 void TcpServer::cleanupFinishedThreads()
 {
+    for (auto it = _clientThreads.begin(); it != _clientThreads.end(); ++it)
+    {
+        OM_LOG_INFO() << "  _clientThreads item " << it->get_id();
+    }
+
     std::vector<std::thread> threadsToJoin;
     {
         std::lock_guard<std::mutex> lock(_threadsMutex);
@@ -157,10 +162,6 @@ void TcpServer::cleanupFinishedThreads()
         }
     }
 
-    for (auto it = _clientThreads.begin(); it != _clientThreads.end(); ++it)
-    {
-        OM_LOG_INFO() << "  _clientThreads item " << it->get_id();
-    }
     for (auto it = threadsToJoin.begin(); it != threadsToJoin.end(); ++it)
     {
         OM_LOG_INFO() << "  threadsToJoin item " << it->get_id();
@@ -168,6 +169,10 @@ void TcpServer::cleanupFinishedThreads()
     for (auto it = _finishedThreadIds.begin(); it != _finishedThreadIds.end(); ++it)
     {
         OM_LOG_INFO() << "  _finishedThreadIds item " << *it;
+    }
+    for (auto it = _clientThreads.begin(); it != _clientThreads.end(); ++it)
+    {
+        OM_LOG_INFO() << "  _clientThreads item " << it->get_id();
     }
 
     OM_LOG_INFO() << "cleanup: before join";
