@@ -260,4 +260,13 @@ void Session::setKeepAlive(bool enable, int idleSec, int intervalSec, int count)
 #endif
 }
 
+bool Session::setNoDelay(bool enable)
+{
+    if (_socketFD < 0)
+        return false;
+
+    int flag = enable ? 1 : 0;
+    return setsockopt(_socketFD, IPPROTO_TCP, TCP_NODELAY, (const char*)&flag, sizeof(flag)) == 0;
+}
+
 } // namespace oracle

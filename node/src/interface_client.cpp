@@ -133,6 +133,9 @@ bool InterfaceClient::connect()
         return false;
     }
 
+    // Disable Nagle's algorithm for low-latency request/response
+    _session->setNoDelay(true);
+
     OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Connected.";
     _connected.store(true);
     return true;
