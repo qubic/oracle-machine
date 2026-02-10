@@ -363,9 +363,10 @@ int InterfaceClient::sendAndReceive(const QueryRequest& request, InterfaceQueryR
         return -1;
     }
 
-    // Receive reply payload
+    // Receive reply payload into full packet buffer (header + payload)
     result.replyData.resize(headerBuffer.size());
-    int received = _session->receive(
+    std::memcpy(result.replyData.data(), &headerBuffer, sizeof(RequestResponseHeader));
+    int received = _session->receiveExact(
         result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
 
     if (received != (int)headerBuffer.getPayloadSize())
