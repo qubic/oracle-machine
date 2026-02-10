@@ -140,18 +140,19 @@ void TcpServer::cleanupFinishedThreads()
     std::vector<std::thread> threadsToJoin;
     {
         std::lock_guard<std::mutex> lock(_threadsMutex);
-        auto it = _clientThreads.begin();
-        while (it != _clientThreads.end())
+        auto clientIt = _clientThreads.begin();
+        while (clientIt != _clientThreads.end())
         {
-            if (_finishedThreadIds.count(it->get_id()) > 0)
+            auto finishedIt = _finishedThreadIds.find(clientIt->get_id());
+            if (finishedIt != _finishedThreadIds.end())
             {
-                threadsToJoin.push_back(std::move(*it)); 
-                _finishedThreadIds.erase(it->get_id());
-                it = _clientThreads.erase(it);
+                _finishedThreadIds.erase(finishedIt);
+                threadsToJoin.push_back(std::move(*clientIt));
+                clientIt = _clientThreads.erase(clientIt);
             }
             else
             {
-                ++it;
+                ++clientIt;
             }
         }
     }
