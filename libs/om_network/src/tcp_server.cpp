@@ -156,6 +156,19 @@ void TcpServer::cleanupFinishedThreads()
         }
     }
 
+    for (auto it = _clientThreads.begin(); it != _clientThreads.end(); ++it)
+    {
+        OM_LOG_INFO() << "  _clientThreads item " << it->get_id();
+    }
+    for (auto it = threadsToJoin.begin(); it != threadsToJoin.end(); ++it)
+    {
+        OM_LOG_INFO() << "  threadsToJoin item " << it->get_id();
+    }
+    for (auto it = _finishedThreadIds.begin(); it != _finishedThreadIds.end(); ++it)
+    {
+        OM_LOG_INFO() << "  _finishedThreadIds item " << *it;
+    }
+
     OM_LOG_INFO() << "cleanup: before join";
     for (auto& t : threadsToJoin)
     {
@@ -366,6 +379,12 @@ void TcpServer::clientThread(int clientFd, std::string clientIP)
         std::lock_guard<std::mutex> lock(_threadsMutex);
         _finishedThreadIds.insert(std::this_thread::get_id());
     }
+    OM_LOG_INFO() << "Added " << std::this_thread::get_id()  << " to _finishedThreadIds, IP " << clientIP;
+    for (auto i : _finishedThreadIds)
+    {
+        OM_LOG_INFO() << "-> _finishedThreadIds item " << i;
+    }
+
 
     // Cleanup - remove from active list
     removeClientFD(clientFd);
