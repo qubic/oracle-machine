@@ -156,6 +156,7 @@ void TcpServer::cleanupFinishedThreads()
         }
     }
 
+    OM_LOG_INFO() << "cleanup: before join";
     for (auto& t : threadsToJoin)
     {
         if (t.joinable())
@@ -163,6 +164,7 @@ void TcpServer::cleanupFinishedThreads()
             t.join();
         }
     }
+    OM_LOG_INFO() << "cleanup: after join";
 }
 
 // Order of shutdown:
@@ -312,8 +314,13 @@ void TcpServer::acceptLoop()
             _activeClientFDs.push_back(client_fd);
         }
 
+        OM_LOG_INFO() << "cleanup before new thread for " << client_ip;
+
         // Cleanup finished threads
         cleanupFinishedThreads();
+
+
+        OM_LOG_INFO() << "start new thread for " << client_ip;
 
         // Handle each connected client in new thread
         _clientThreads.emplace_back(&TcpServer::clientThread, this, client_fd, client_ip);
