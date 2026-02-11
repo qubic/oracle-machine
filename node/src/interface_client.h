@@ -51,7 +51,7 @@ public:
     /**
      * Constructor
      *
-     * @param interfaceIndex Interface type (0 = Price, 1 = Weather, etc.)
+     * @param interfaceIndex Interface type (0 = Price, 1 = Mock, etc.)
      * @param host Host of the aggregator service
      * @param port Port of the aggregator service
      */
@@ -131,8 +131,12 @@ private:
     // Worker thread function 
     void workerThread();
 
-    // Process a single query request
+    // Process a single query request (with retry on stale connection)
     bool processQueryRequest(const QueryRequest& request, InterfaceQueryResult& result);
+
+    // Single attempt to send query and receive reply. Returns:
+    //  1 = success, 0 = send failed (retryable), -1 = non-retryable error
+    int sendAndReceive(const QueryRequest& request, InterfaceQueryResult& result);
 
     // Interface info
     uint32_t _interfaceIndex;

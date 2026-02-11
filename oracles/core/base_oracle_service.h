@@ -44,7 +44,7 @@ class Session;
  * Abstract base class for Oracle Machine services.
  *
  * Handles protocol-level operations (header, query, reply parsing).
- * Concrete services (Price, Weather, etc.) implement interface-specific logic.
+ * Concrete services (Price, Mock, Weather, etc.) implement interface-specific logic.
  *
  * Usage:
  *   1. Inherit from BaseOracleService

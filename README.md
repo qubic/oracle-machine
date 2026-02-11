@@ -31,7 +31,7 @@ This is a middleware system that bridges Qubic nodes with external oracle servic
         ┌────────┴────────┐
         ▼                 ▼
    ┌─────────┐      ┌──────────┐
-   │ Price   │      │ Weather  │
+   │ Price   │      │ Mock     │
    │ Service │      │ Service  │
    │ :31842  │      │ :31843   │
    └────┬────┘      └──────────┘
@@ -146,7 +146,7 @@ Offset | Size | Field    | Type     | Description
 Offset | Size | Field                 | Type   | Description
 -------|------|-----------------------|--------|---------------------------
 0      | 8    | oracleQueryId         | uint64 | Query identifier for reply correlation
-8      | 4    | oracleInterfaceIndex  | uint32 | Interface type (0=Price, 1=Weather)
+8      | 4    | oracleInterfaceIndex  | uint32 | Interface type (0=Price, 1=Mock)
 12     | 4    | timeoutInMilliseconds | uint32 | Query timeout
 ```
 
@@ -271,8 +271,8 @@ cd docker
 | `QUBIC_NODES` | 10.29.1.22,192.168.1.2 | Comma-separated whitelist of Qubic node IPs |
 | `PRICE_SERVICE_HOST` | 0.0.0.0 | Price service host |
 | `PRICE_SERVICE_PORT` | 9001 | Price service port |
-| `WEATHER_SERVICE_HOST` | 0.0.0.0 | Weather service host |
-| `WEATHER_SERVICE_PORT` | 9002 | Weather service port |
+| `MOCK_SERVICE_HOST` | 0.0.0.0 | Mock service host |
+| `MOCK_SERVICE_PORT` | 9002 | Mock service port |
 
 ## .env File Setup
 
@@ -292,8 +292,8 @@ QUBIC_NODES=10.29.1.22,127.0.0.1
 PRICE_SERVICE_HOST=127.0.0.1
 PRICE_SERVICE_PORT=31842
 
-WEATHER_SERVICE_HOST=127.0.0.1
-WEATHER_SERVICE_PORT=31843
+MOCK_SERVICE_HOST=127.0.0.1
+MOCK_SERVICE_PORT=31843
 ```
 
 ## Docker Compose Environment

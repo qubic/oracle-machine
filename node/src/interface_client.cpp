@@ -336,68 +336,88 @@ void InterfaceClient::workerThread()
     OM_LOG_DEBUG() << "InterfaceClient[" << _interfaceIndex << "] Worker thread exiting";
 }
 
+int InterfaceClient::sendAndReceive(const QueryRequest& request, InterfaceQueryResult& result)
+{
+    std::lock_guard<std::mutex> lock(_connectionMutex);
+
+    if (!_session || !_session->isActive())
+    {
+        return 0; // retryable: connection was lost, reconnect and try again
+    }
+
+    // Send query data
+    if (!_session->sendData(request.queryData.data(), request.queryData.size()))
+    {
+        _session->close();
+        return 0; // retryable: likely stale connection
+    }
+
+    // Receive reply header
+    RequestResponseHeader headerBuffer;
+    int headerReceived =
+        _session->receiveExact((uint8_t*)&headerBuffer, sizeof(RequestResponseHeader));
+    if (headerReceived != sizeof(RequestResponseHeader))
+    {
+        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                       << request.requestID << " failed: invalid reply header";
+        return -1;
+    }
+
+    // Receive reply payload
+    result.replyData.resize(headerBuffer.size());
+    int received = _session->receive(
+        result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
+
+    if (received != (int)headerBuffer.getPayloadSize())
+    {
+        if (_session->isActive())
+        {
+            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                           << request.requestID << " failed: invalid reply size " << received;
+        }
+        _session->close();
+        return -1;
+    }
+
+    result.valid = true;
+    return 1; // success
+}
+
 bool InterfaceClient::processQueryRequest(const QueryRequest& request, InterfaceQueryResult& result)
 {
+    static constexpr int MAX_SEND_RETRIES = 8;
+
     auto startTime = std::chrono::steady_clock::now();
 
     _totalQueries.fetch_add(1);
 
-    // Ensure connected
-    if (!connect())
+    for (int attempt = 0; attempt <= MAX_SEND_RETRIES; ++attempt)
     {
-        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                       << request.requestID << " failed: cannot connect";
-        return false;
+        // Ensure connected (reconnects if previous attempt closed the session)
+        if (!connect())
+        {
+            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                           << request.requestID << " failed: cannot connect";
+            return false;
+        }
+
+        int rc = sendAndReceive(request, result);
+        if (rc == 1)
+            break; // success
+        if (rc < 0)
+            return false; // non-retryable error
+
+        // rc == 0: send failed (stale connection), retry
+        OM_LOG_WARNING() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                         << request.requestID << " send failed, reconnecting... (attempt "
+                         << (attempt + 1) << "/" << MAX_SEND_RETRIES << ")";
     }
 
-    // Send query and receive reply
+    if (!result.valid)
     {
-        std::lock_guard<std::mutex> lock(_connectionMutex);
-
-        if (!_session || !_session->isActive())
-        {
-            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                           << request.requestID << " failed: session not active";
-            return false;
-        }
-
-        // Send query data
-        if (!_session->sendData(request.queryData.data(), request.queryData.size()))
-        {
-            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                           << request.requestID << " failed: cannot send";
-            _session->close();
-            return false;
-        }
-
-        // Receive reply
-        // Header first
-        RequestResponseHeader headerBuffer;
-        int headerReceived =
-            _session->receiveExact((uint8_t*)&headerBuffer, sizeof(RequestResponseHeader));
-        if (headerReceived != sizeof(RequestResponseHeader))
-        {
-            OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                           << request.requestID << " failed: invalid reply header";
-            return false;
-        }
-
-        result.replyData.resize(headerBuffer.size());
-        int received = _session->receive(
-            result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
-
-        if (received != (int)headerBuffer.getPayloadSize())
-        {
-            if (_session->isActive())
-            {
-                OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
-                               << request.requestID << " failed: invalid reply size " << received;
-            }
-            _session->close();
-            return false;
-        }
-
-        result.valid = true;
+        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                       << request.requestID << " failed after " << MAX_SEND_RETRIES << " retries";
+        return false;
     }
 
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(

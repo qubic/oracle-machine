@@ -9,6 +9,10 @@
 #include <iostream>
 #include <thread>
 
+#ifdef min
+#undef min
+#endif
+
 namespace oracle
 {
 

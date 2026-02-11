@@ -37,6 +37,19 @@ export MOCK_SERVICE_HOST=192.168.1.5
 export MOCK_SERVICE_PORT=31843
 
 # -----------------------------------------------------------------------------
+# Exchange API Keys (optional - for higher rate limits)
+# If not set, free tier with rate limiting will be used.
+
+# Binance API Key
+# export BINANCE_API_KEY=your_binance_api_key
+
+# MEXC API Key
+# export MEXC_API_KEY=your_mexc_api_key
+
+# Gate.io API Key
+# export GATE_API_KEY=your_gate_api_key
+
+# -----------------------------------------------------------------------------
 # Docker Settings (only used when running with docker compose)
 
 # User/Group ID for Docker volume permissions
