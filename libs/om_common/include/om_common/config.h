@@ -10,6 +10,7 @@
 // =============================================================================
 constexpr const uint32_t PRICE_ORACLE_INTERFACE_INDEX = 0;
 constexpr const uint32_t MOCK_ORACLE_INTERFACE_INDEX = 1;
+constexpr const uint32_t FOOTBALL_ORACLE_INTERFACE_INDEX = 2;
 constexpr const uint32_t MAX_ORACLE_INTERFACES_SUPPORT = 1024;
 
 // ENVIRONMENT VARIABLE NAMES
@@ -25,6 +26,9 @@ constexpr const char* PRICE_SERVICE_PORT = "PRICE_SERVICE_PORT";
 
 constexpr const char* MOCK_SERVICE_HOST = "MOCK_SERVICE_HOST";
 constexpr const char* MOCK_SERVICE_PORT = "MOCK_SERVICE_PORT";
+
+constexpr const char* FOOTBALL_SERVICE_HOST = "FOOTBALL_SERVICE_HOST";
+constexpr const char* FOOTBALL_SERVICE_PORT = "FOOTBALL_SERVICE_PORT";
 } // namespace ConfigEnv
 
 struct NodeEndpoint
