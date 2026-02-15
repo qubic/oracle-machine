@@ -90,22 +90,15 @@ void MockFootballProvider::setMatchData(
 }
 
 // ============================================================================
-// API-Football Provider
+// TheSportsDB Provider
 
-ApiFootballProvider::ApiFootballProvider(const std::string& apiKey) :
-    FootballProvider("ApiFootball"), _apiKey(apiKey), _lastRequestTime(0)
+TheSportsDBProvider::TheSportsDBProvider() :
+    FootballProvider("TheSportsDB"), _lastRequestTime(0)
 {
-    if (!_apiKey.empty())
-    {
-        OM_LOG_INFO() << "[" << _name << "] Configured with API key";
-    }
-    else
-    {
-        OM_LOG_INFO() << "[" << _name << "] Using free tier (no API key)";
-    }
+    OM_LOG_INFO() << "[" << _name << "] Initialized (no authentication required)";
 }
 
-uint16_t ApiFootballProvider::getMatchData(
+uint16_t TheSportsDBProvider::getMatchData(
     uint32_t matchId,
     uint32_t leagueId,
     uint32_t season,
@@ -164,37 +157,39 @@ uint16_t ApiFootballProvider::getMatchData(
     return returnCode;
 }
 
-uint8_t ApiFootballProvider::parseMatchStatus(
-    const std::string& statusShort,
-    const std::string& statusLong)
+uint8_t TheSportsDBProvider::parseMatchStatus(const std::string& statusStr)
 {
-    // API-Football status codes:
-    // TBD, NS = Not Started
-    // 1H, HT, 2H, ET, BT, P, SUSP, INT, LIVE = In Progress
-    // FT, AET, PEN = Finished
-    // PST, CANC, ABD = Postponed/Cancelled
+    // TheSportsDB status strings:
+    // "Not Started", "Match Scheduled" = Not Started
+    // "In Play", "First Half", "Second Half", "Halftime" = In Progress
+    // "Match Finished", "Full Time" = Finished
+    // "Match Postponed" = Postponed
+    // "Match Cancelled" = Cancelled
 
-    if (statusShort == "TBD" || statusShort == "NS")
+    if (statusStr.find("Not Started") != std::string::npos ||
+        statusStr.find("Scheduled") != std::string::npos)
         return 0; // NOT_STARTED
     
-    if (statusShort == "1H" || statusShort == "HT" || statusShort == "2H" ||
-        statusShort == "ET" || statusShort == "BT" || statusShort == "P" ||
-        statusShort == "SUSP" || statusShort == "INT" || statusShort == "LIVE")
+    if (statusStr.find("In Play") != std::string::npos ||
+        statusStr.find("First Half") != std::string::npos ||
+        statusStr.find("Second Half") != std::string::npos ||
+        statusStr.find("Halftime") != std::string::npos)
         return 1; // IN_PROGRESS
     
-    if (statusShort == "FT" || statusShort == "AET" || statusShort == "PEN")
+    if (statusStr.find("Finished") != std::string::npos ||
+        statusStr.find("Full Time") != std::string::npos)
         return 2; // FINISHED
     
-    if (statusShort == "PST")
+    if (statusStr.find("Postponed") != std::string::npos)
         return 3; // POSTPONED
     
-    if (statusShort == "CANC" || statusShort == "ABD")
+    if (statusStr.find("Cancelled") != std::string::npos)
         return 4; // CANCELLED
 
     return 0; // Default to NOT_STARTED
 }
 
-uint16_t ApiFootballProvider::fetchFromAPI(
+uint16_t TheSportsDBProvider::fetchFromAPI(
     uint32_t matchId,
     uint32_t leagueId,
     uint32_t season,
@@ -222,9 +217,10 @@ uint16_t ApiFootballProvider::fetchFromAPI(
         _lastRequestTime = time(nullptr);
     }
 
-    // Build URL - using fixtures endpoint with match ID
+    // Build URL - using lookupevent endpoint with event ID
+    // TheSportsDB uses public API key "3" for testing/free tier
     std::ostringstream urlStream;
-    urlStream << "https://v3.football.api-sports.io/fixtures?id=" << matchId;
+    urlStream << "https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=" << matchId;
     std::string url = urlStream.str();
 
     OM_LOG_INFO() << "[" << _name << "] Fetching: " << url;
@@ -252,28 +248,8 @@ uint16_t ApiFootballProvider::fetchFromAPI(
         });
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
 
-    // Add API key header
-    struct curl_slist* headers = nullptr;
-    if (!_apiKey.empty())
-    {
-        std::string headerValue = "x-apisports-key: " + _apiKey;
-        headers = curl_slist_append(headers, headerValue.c_str());
-    }
-    else
-    {
-        // Free tier requires header even without key
-        headers = curl_slist_append(headers, "x-apisports-key: ");
-    }
-    curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-
-    // Perform request
+    // Perform request (no authentication needed!)
     CURLcode res = curl_easy_perform(curl);
-
-    // Cleanup headers
-    if (headers)
-    {
-        curl_slist_free_all(headers);
-    }
 
     if (res != CURLE_OK)
     {
@@ -296,78 +272,90 @@ uint16_t ApiFootballProvider::fetchFromAPI(
 
     // Parse JSON response (simple parsing for specific fields)
     // Example response structure:
-    // {"response":[{"fixture":{"id":123},"teams":{"home":{"id":33},"away":{"id":40}},
-    //               "goals":{"home":2,"away":1},"score":{"fulltime":{"home":2,"away":1}},
-    //               "fixture":{"status":{"short":"FT","elapsed":90}}}]}
+    // {"events":[{"idEvent":"123","idHomeTeam":"133612","idAwayTeam":"133616",
+    //             "intHomeScore":"2","intAwayScore":"1","strStatus":"Match Finished"}]}
+
+    // Check if event exists
+    if (response.find("\"events\":null") != std::string::npos ||
+        response.find("\"events\":[]") != std::string::npos)
+    {
+        OM_LOG_ERROR() << "[" << _name << "] Event not found: " << matchId;
+        return RETURN_ERROR_INVALID_ARG;
+    }
 
     // Extract home team ID
-    size_t homeTeamPos = response.find("\"home\":{\"id\":");
+    size_t homeTeamPos = response.find("\"idHomeTeam\":\"");
     if (homeTeamPos == std::string::npos)
     {
         OM_LOG_ERROR() << "[" << _name << "] Failed to parse home team ID";
         return RETURN_ERROR_ORACLE_UNAVAIL;
     }
-    homeTeamPos += 13; // Length of "\"home\":{\"id\":"
-    size_t homeTeamEnd = response.find_first_of(",}", homeTeamPos);
+    homeTeamPos += 15; // Length of "\"idHomeTeam\":\""
+    size_t homeTeamEnd = response.find("\"", homeTeamPos);
     homeTeamId = std::stoul(response.substr(homeTeamPos, homeTeamEnd - homeTeamPos));
 
     // Extract away team ID
-    size_t awayTeamPos = response.find("\"away\":{\"id\":", homeTeamEnd);
+    size_t awayTeamPos = response.find("\"idAwayTeam\":\"");
     if (awayTeamPos == std::string::npos)
     {
         OM_LOG_ERROR() << "[" << _name << "] Failed to parse away team ID";
         return RETURN_ERROR_ORACLE_UNAVAIL;
     }
-    awayTeamPos += 13;
-    size_t awayTeamEnd = response.find_first_of(",}", awayTeamPos);
+    awayTeamPos += 15;
+    size_t awayTeamEnd = response.find("\"", awayTeamPos);
     awayTeamId = std::stoul(response.substr(awayTeamPos, awayTeamEnd - awayTeamPos));
 
-    // Extract scores (goals section)
-    size_t goalsPos = response.find("\"goals\":{\"home\":");
-    if (goalsPos != std::string::npos)
+    // Extract home score
+    size_t homeScorePos = response.find("\"intHomeScore\":\"");
+    if (homeScorePos != std::string::npos)
     {
-        goalsPos += 16;
-        size_t goalsEnd = response.find_first_of(",}", goalsPos);
-        std::string homeScoreStr = response.substr(goalsPos, goalsEnd - goalsPos);
-        homeScore = (homeScoreStr == "null") ? -1 : std::stoi(homeScoreStr);
-
-        size_t awayGoalsPos = response.find("\"away\":", goalsEnd);
-        if (awayGoalsPos != std::string::npos)
-        {
-            awayGoalsPos += 7;
-            size_t awayGoalsEnd = response.find_first_of(",}", awayGoalsPos);
-            std::string awayScoreStr = response.substr(awayGoalsPos, awayGoalsEnd - awayGoalsPos);
-            awayScore = (awayScoreStr == "null") ? -1 : std::stoi(awayScoreStr);
-        }
+        homeScorePos += 17;
+        size_t homeScoreEnd = response.find("\"", homeScorePos);
+        std::string homeScoreStr = response.substr(homeScorePos, homeScoreEnd - homeScorePos);
+        homeScore = homeScoreStr.empty() ? -1 : std::stoi(homeScoreStr);
     }
     else
     {
         homeScore = -1;
+    }
+
+    // Extract away score
+    size_t awayScorePos = response.find("\"intAwayScore\":\"");
+    if (awayScorePos != std::string::npos)
+    {
+        awayScorePos += 17;
+        size_t awayScoreEnd = response.find("\"", awayScorePos);
+        std::string awayScoreStr = response.substr(awayScorePos, awayScoreEnd - awayScorePos);
+        awayScore = awayScoreStr.empty() ? -1 : std::stoi(awayScoreStr);
+    }
+    else
+    {
         awayScore = -1;
     }
 
     // Extract status
-    size_t statusPos = response.find("\"status\":{\"short\":\"");
+    size_t statusPos = response.find("\"strStatus\":\"");
     if (statusPos != std::string::npos)
     {
-        statusPos += 20;
+        statusPos += 14;
         size_t statusEnd = response.find("\"", statusPos);
-        std::string statusShort = response.substr(statusPos, statusEnd - statusPos);
-        status = parseMatchStatus(statusShort, "");
+        std::string statusStr = response.substr(statusPos, statusEnd - statusPos);
+        status = parseMatchStatus(statusStr);
     }
     else
     {
         status = 0; // Default to NOT_STARTED
     }
 
-    // Extract elapsed minutes
-    size_t elapsedPos = response.find("\"elapsed\":");
-    if (elapsedPos != std::string::npos)
+    // For finished matches, set elapsed to 90 minutes
+    // TheSportsDB doesn't provide real-time elapsed minutes
+    if (status == 2) // FINISHED
     {
-        elapsedPos += 10;
-        size_t elapsedEnd = response.find_first_of(",}", elapsedPos);
-        std::string elapsedStr = response.substr(elapsedPos, elapsedEnd - elapsedPos);
-        elapsedMinutes = (elapsedStr == "null") ? 0 : std::stoi(elapsedStr);
+        elapsedMinutes = 90;
+    }
+    else if (status == 1) // IN_PROGRESS
+    {
+        elapsedMinutes = 45; // Estimate
     }
     else
     {

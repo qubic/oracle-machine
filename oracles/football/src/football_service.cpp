@@ -18,11 +18,8 @@ FootballService::FootballService(const std::string& rHostname, uint16_t hostPort
     // Register default providers
     registerProvider("mock", std::make_shared<MockFootballProvider>());
 
-    // Register API-Football provider
-    const char* apiFootballKey = std::getenv("APIFOOTBALL_API_KEY");
-    registerProvider(
-        "apifootball",
-        std::make_shared<ApiFootballProvider>(apiFootballKey ? apiFootballKey : ""));
+    // Register TheSportsDB provider (no authentication required!)
+    registerProvider("thesportsdb", std::make_shared<TheSportsDBProvider>());
 }
 
 FootballService::~FootballService()

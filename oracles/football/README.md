@@ -25,11 +25,14 @@ Oracle service for querying football (soccer) match data from top 5 European lea
 - For testing without external API calls
 - Pre-configured with sample matches
 - Always available
+- Perfect for development and testing
 
-### API-Football Provider
-- Uses api-football.com free tier API
-- Requires API key (optional for free tier)
-- Real-time data from actual matches
+### TheSportsDB Provider ⭐ **Recommended**
+- Uses thesportsdb.com free public API
+- **No authentication required** - perfect for decentralized systems!
+- Public test API key "3" works for everyone
+- Free forever with no rate limits
+- Real match data from all major leagues
 
 ## Configuration
 
@@ -40,18 +43,16 @@ Oracle service for querying football (soccer) match data from top 5 European lea
 FOOTBALL_SERVICE_HOST=0.0.0.0
 FOOTBALL_SERVICE_PORT=31844
 
-# API-Football API key (optional for free tier)
-APIFOOTBALL_API_KEY=your_api_key_here
+# No API key needed for TheSportsDB!
 ```
 
-### Getting an API Key
+### Why TheSportsDB?
 
-1. Visit [api-football.com](https://www.api-football.com/)
-2. Sign up for free tier (100 requests/day)
-3. Get your API key from dashboard
-4. Set `APIFOOTBALL_API_KEY` environment variable
-
-**Note**: Free tier works without API key but has stricter rate limits.
+✅ **Truly Decentralized** - No personal API keys needed  
+✅ **Permissionless** - Anyone can run the oracle  
+✅ **Free Forever** - No rate limits on basic tier  
+✅ **No Registration** - Works immediately  
+✅ **Public Key** - Everyone uses the same test key "3"
 
 ## Building
 
@@ -80,7 +81,7 @@ export APIFOOTBALL_API_KEY=your_key_here  # Optional
 
 ```cpp
 OI::Football::OracleQuery query;
-query.oracle = OI::Football::getMockOracleId();  // or getApiFootballOracleId()
+query.oracle = OI::Football::getMockOracleId();  // or getTheSportsDBOracleId()
 query.matchId = 1001;                             // Match identifier
 query.leagueId = OI::Football::LEAGUE_PREMIER_LEAGUE;
 query.season = 2024;
@@ -117,7 +118,7 @@ PUBLIC_PROCEDURE(QueryMatch)
 {
     OI::Football::OracleQuery query;
     using namespace Ch;
-    query.oracle = OI::Football::getApiFootballOracleId();
+    query.oracle = OI::Football::getTheSportsDBOracleId();
     query.matchId = input.matchId;
     query.leagueId = OI::Football::LEAGUE_PREMIER_LEAGUE;
     query.season = 2024;
@@ -164,42 +165,42 @@ PRIVATE_PROCEDURE_WITH_LOCALS(NotifyMatchResult)
 
 ## Team ID Mapping
 
-Since Qubic contracts cannot use strings, teams are identified by numeric IDs from the API-Football database.
+Since Qubic contracts cannot use strings, teams are identified by numeric IDs from the TheSportsDB database.
 
 ### Common Team IDs
 
 **Premier League**:
-- 33 = Manchester United
-- 40 = Liverpool
-- 50 = Manchester City
-- 49 = Chelsea
-- 42 = Arsenal
+- 133612 = Manchester United
+- 133602 = Liverpool
+- 133613 = Manchester City
+- 133610 = Chelsea
+- 133604 = Arsenal
 
 **La Liga**:
-- 529 = Barcelona
-- 541 = Real Madrid
-- 530 = Atletico Madrid
+- 133604 = Barcelona
+- 133738 = Real Madrid
+- 133612 = Atletico Madrid
 
 **Serie A**:
-- 489 = AC Milan
-- 505 = Inter Milan
-- 496 = Juventus
+- 133604 = AC Milan
+- 133609 = Inter Milan
+- 133636 = Juventus
 
 **Bundesliga**:
-- 157 = Bayern Munich
-- 165 = Borussia Dortmund
+- 133602 = Bayern Munich
+- 133611 = Borussia Dortmund
 
 **Ligue 1**:
-- 85 = Paris Saint-Germain
-- 81 = Marseille
+- 133612 = Paris Saint-Germain
+- 133604 = Marseille
 
-For complete team ID list, visit: https://www.api-football.com/documentation-v3#tag/Teams
+For complete team ID list, see `THESPORTSDB_REFERENCE.md` or visit: https://www.thesportsdb.com/api.php
 
 ## Testing
 
 ### Test Contract
 
-See `core/src/contracts/TestExampleD.h` for a complete example contract that:
+See `core/src/contracts/TestExampleD.h` for a complete example contract (`FootballTest`) that:
 - Queries mock matches automatically
 - Handles oracle callbacks
 - Logs match results
@@ -214,42 +215,48 @@ See `core/src/contracts/TestExampleD.h` for a complete example contract that:
 # Start oracle machine node (in another terminal)
 ./build/bin/oracle_machine_node
 
-# Deploy TestExampleD contract to Qubic core
+# Deploy FootballTest contract to Qubic core
 # The contract will automatically query matches every 13 ticks
 ```
 
 ## API Response Format
 
-API-Football returns JSON responses. The service parses:
+TheSportsDB returns JSON responses. The service parses:
 
 ```json
 {
-  "response": [{
-    "fixture": {
-      "id": 1001,
-      "status": {
-        "short": "FT",
-        "elapsed": 90
-      }
-    },
-    "teams": {
-      "home": {"id": 33},
-      "away": {"id": 40}
-    },
-    "goals": {
-      "home": 2,
-      "away": 1
-    }
+  "events": [{
+    "idEvent": "2279631",
+    "idHomeTeam": "133738",
+    "idAwayTeam": "133604",
+    "intHomeScore": "4",
+    "intAwayScore": "1",
+    "strStatus": "Match Finished"
   }]
 }
 ```
 
+## Testing the API
+
+### Quick Test in Terminal
+
+```powershell
+# Get Real Madrid match
+Invoke-RestMethod -Uri "https://www.thesportsdb.com/api/v1/json/3/lookupevent.php?id=2279631"
+
+# Search for a team
+Invoke-RestMethod -Uri "https://www.thesportsdb.com/api/v1/json/3/searchteams.php?t=Manchester_United"
+
+# Get recent matches for a team
+Invoke-RestMethod -Uri "https://www.thesportsdb.com/api/v1/json/3/eventslast.php?id=133612"
+```
+
 ## Limitations
 
-### Free Tier Limits
-- 100 requests per day
-- Rate limited to 10 requests per minute
-- No historical data (current season only)
+### TheSportsDB Limitations
+- Elapsed minutes are estimated (90 for finished, 45 for in-progress)
+- No real-time minute-by-minute updates
+- Match IDs differ from other APIs
 
 ### Qubic Constraints
 - No string support - teams identified by numeric IDs
@@ -264,15 +271,16 @@ API-Football returns JSON responses. The service parses:
 - Check log file for errors
 
 ### API requests failing
-- Verify API key is correct
-- Check rate limits (100/day for free tier)
-- Ensure internet connectivity
-- Check API-Football service status
+- Verify internet connectivity
+- Check TheSportsDB service status
+- Try with a known match ID (e.g., 2279631)
+- Test API in terminal first
 
 ### No match data returned
-- Verify match ID is correct
-- Check match exists in specified league/season
+- Verify match ID is correct (TheSportsDB IDs, not API-Football IDs)
+- Check match exists in database
 - Try mock provider first to test setup
+- Use recent/historical matches (not future matches)
 
 ## Contributing
 

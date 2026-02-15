@@ -96,14 +96,15 @@ private:
 };
 
 /**
- * API-Football Provider
+ * TheSportsDB Provider
  * 
- * Uses api-football.com free tier API
+ * Uses thesportsdb.com free public API (no authentication required)
+ * Perfect for decentralized oracle systems
  */
-class ApiFootballProvider : public FootballProvider
+class TheSportsDBProvider : public FootballProvider
 {
 public:
-    ApiFootballProvider(const std::string& apiKey = "");
+    TheSportsDBProvider();
 
     uint16_t getMatchData(
         uint32_t matchId,
@@ -128,14 +129,13 @@ private:
         time_t timestamp;
     };
 
-    std::string _apiKey;
     std::map<uint32_t, CacheEntry> _cache;
     std::mutex _cacheMutex;
     std::mutex _rateLimitMutex;
     time_t _lastRequestTime;
 
     static constexpr int CACHE_TTL = 60;            // 60 seconds
-    static constexpr double RATE_LIMIT_DELAY = 2.0; // 2 seconds between requests
+    static constexpr double RATE_LIMIT_DELAY = 1.0; // 1 second between requests
 
     uint16_t fetchFromAPI(
         uint32_t matchId,
@@ -148,7 +148,7 @@ private:
         uint8_t& status,
         uint8_t& elapsedMinutes);
 
-    uint8_t parseMatchStatus(const std::string& statusShort, const std::string& statusLong);
+    uint8_t parseMatchStatus(const std::string& status);
 };
 
 } // namespace oracle
