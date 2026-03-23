@@ -4,6 +4,10 @@ find_package(Threads REQUIRED)
 set(OM_COMMON_SOURCES
     src/config.cpp
     src/logger.cpp
+    include/om_common/default_config.h
+    include/om_common/config.h
+    include/om_common/logger.h
+    include/om_common/qpi_adapter.h
 )
 
 add_library(${PROJECT_NAME} STATIC ${OM_COMMON_SOURCES})
