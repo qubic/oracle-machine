@@ -1,7 +1,6 @@
 #include "request_handler.h"
 #include "om_common/config.h"
 #include "om_common/logger.h"
-#include "oracle_cache.h"
 
 #include "om_common/qpi_adapter.h"
 
@@ -10,9 +9,6 @@
 
 namespace oracle
 {
-
-// TODO: move this into OracleMachine
-static OracleCache g_cache;
 
 RequestHandler::RequestHandler(std::map<uint32_t, std::unique_ptr<InterfaceClient>>& clients) :
     _interfaceClients(clients)
@@ -60,7 +56,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
 
     // Check if the OracleMachineQuery
     OracleCache::CachedData cached_data;
-    if (g_cache.lookup(query, cached_data))
+    if (_cache.lookup(query, cached_data))
     {
         OM_LOG_DEBUG() << "Cache HIT - get data from cache.";
         return makeResponse(
@@ -128,7 +124,7 @@ RequestHandler::handle(const RequestResponseHeader& header, const uint8_t* paylo
 
         // Cache the payload
         // TODO: verify reply.oracleMachineErrorFlags before storing to cache
-        g_cache.store(
+        _cache.store(
             query, replyPayload.data(), replyPayload.size(), reply.oracleMachineErrorFlags);
 
         // Return success response with reply data

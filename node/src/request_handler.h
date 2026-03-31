@@ -1,6 +1,7 @@
 #pragma once
 
 #include "interface_client.h"
+#include "oracle_cache.h"
 #include "network_messages/header.h"
 #include "oracle_core/core_om_network_messages.h"
 
@@ -30,6 +31,7 @@ private:
     std::vector<uint8_t> makeErrorResponse(uint64_t queryID, uint16_t errorFlags);
 
     std::map<uint32_t, std::unique_ptr<InterfaceClient>>& _interfaceClients;
+    OracleCache _cache;
 };
 
 } // namespace oracle

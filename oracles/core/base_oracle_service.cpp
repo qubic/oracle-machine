@@ -16,7 +16,7 @@
 namespace oracle
 {
 
-std::atomic<bool> gRunning(true);
+static std::atomic<bool> gRunning(true);
 
 void signalHandler(int signal)
 {
