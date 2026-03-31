@@ -134,7 +134,7 @@ void Config::print() const
     std::cout << "[Config] Interfaces (" << _interfaces.size() << "):" << std::endl;
     for (const auto& iface : _interfaces)
     {
-        std::cout << "  - [" << iface.interfaceIndex << "] " << iface.interfaceIndex << std::endl;
+        std::cout << "  - [" << iface.interfaceIndex << "] " << iface.interfaceName << std::endl;
         std::cout << "      host: " << iface.serviceHost << " " << sourceTag(iface.serviceHost) << std::endl;
         std::cout << "      port: " << iface.servicePort << " " << sourceTag(iface.servicePort) << std::endl;
     }
