@@ -106,4 +106,13 @@ uint16_t BinancePriceProvider::parseKlineResponse(
     return RETURN_NO_ERROR;
 }
 
+std::string BinancePriceProvider::getApiKeyHeader() const
+{
+    if (_apiKey.empty())
+    {
+        return "";
+    }
+    return "X-MBX-APIKEY: " + _apiKey;
+}
+
 } // namespace oracle

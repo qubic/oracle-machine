@@ -92,6 +92,10 @@ protected:
     // Common HTTP functionality
     uint16_t httpGet(const std::string& url, std::string& response);
 
+    // Returns the API key header string for this exchange (e.g., "X-MBX-APIKEY: <key>").
+    // Default returns empty string (no auth header). Override in subclasses.
+    virtual std::string getApiKeyHeader() const;
+
     // Rate limiting
     void enforceRateLimit();
 

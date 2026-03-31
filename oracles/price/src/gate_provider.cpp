@@ -110,4 +110,13 @@ uint16_t GatePriceProvider::parseKlineResponse(
     return RETURN_NO_ERROR;
 }
 
+std::string GatePriceProvider::getApiKeyHeader() const
+{
+    if (_apiKey.empty())
+    {
+        return "";
+    }
+    return "KEY: " + _apiKey;
+}
+
 } // namespace oracle

@@ -198,12 +198,12 @@ uint16_t ExchangePriceProvider::httpGet(const std::string& url, std::string& res
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, &response);
     curl_easy_setopt(curl, CURLOPT_TIMEOUT, 30L);
 
-    // Add API key header if available (subclasses may override header format)
+    // Add exchange-specific API key header if available
     struct curl_slist* headers = nullptr;
-    if (!_apiKey.empty())
+    std::string apiHeader = getApiKeyHeader();
+    if (!apiHeader.empty())
     {
-        std::string header = "X-MBX-APIKEY: " + _apiKey;
-        headers = curl_slist_append(headers, header.c_str());
+        headers = curl_slist_append(headers, apiHeader.c_str());
         curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
     }
 
@@ -232,6 +232,11 @@ uint16_t ExchangePriceProvider::httpGet(const std::string& url, std::string& res
     }
 
     return RETURN_NO_ERROR;
+}
+
+std::string ExchangePriceProvider::getApiKeyHeader() const
+{
+    return "";
 }
 
 } // namespace oracle

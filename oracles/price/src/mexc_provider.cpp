@@ -106,4 +106,13 @@ uint16_t MexcPriceProvider::parseKlineResponse(
     return RETURN_NO_ERROR;
 }
 
+std::string MexcPriceProvider::getApiKeyHeader() const
+{
+    if (_apiKey.empty())
+    {
+        return "";
+    }
+    return "X-MEXC-APIKEY: " + _apiKey;
+}
+
 } // namespace oracle

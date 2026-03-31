@@ -30,6 +30,8 @@ protected:
         const std::string& response,
         std::string& closePriceString) override;
 
+    std::string getApiKeyHeader() const override;
+
 private:
     static constexpr const char* BASE_URL = "https://api.gateio.ws";
     static constexpr double RATE_LIMIT_FREE = 1.0;   // 1 req/sec for free tier
