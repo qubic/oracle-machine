@@ -15,6 +15,7 @@ OracleCache::OracleCache(const Config& config) :
     if (_config.enabled)
     {
         OM_LOG_DEBUG() << "[Cache] Initialized with TTL=" << _config.ttlSeconds
+                       << "s, ErrorTTL=" << _config.errorTtlSeconds
                        << "s, MaxEntries=" << _config.maxEntries;
     }
     else
@@ -98,14 +99,6 @@ void OracleCache::store(
     // Check if cache is enabled
     if (!_config.enabled)
     {
-        return;
-    }
-
-    // Don't cache error replies
-    if (error_flags != 0)
-    {
-        OM_LOG_DEBUG() << "[Cache] Not caching error reply - QueryId=" << query.oracleQueryId
-                       << ", ErrorFlags=" << error_flags;
         return;
     }
 
@@ -204,7 +197,8 @@ bool OracleCache::isValid(const CacheEntry& entry) const
 {
     auto now = std::chrono::steady_clock::now();
     auto age = std::chrono::duration_cast<std::chrono::seconds>(now - entry.timeStamp).count();
-    return age < _config.ttlSeconds;
+    unsigned int ttl = (entry.errorFlag != 0) ? _config.errorTtlSeconds : _config.ttlSeconds;
+    return age < ttl;
 }
 
 void OracleCache::cleanupExpired()

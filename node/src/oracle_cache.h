@@ -57,12 +57,14 @@ public:
     {
         bool enabled;
         unsigned int ttlSeconds;          // Cache TTL (10 seconds default)
+        unsigned int errorTtlSeconds;     // Error cache TTL (5 seconds default)
         size_t maxEntries;                // Max cache size
         unsigned int cleanUpIntervalSec; // Cleanup every 60 seconds
         Config()
         {
             enabled = true;
             ttlSeconds = 10;          // Cache TTL (10 seconds default)
+            errorTtlSeconds = 5;      // Error cache TTL (5 seconds default)
             maxEntries = 100000;      // Max cache size
             cleanUpIntervalSec = 60; // Cleanup every 60 seconds
         }
