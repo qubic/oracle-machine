@@ -73,14 +73,19 @@ uint16_t ExchangePriceProvider::getPriceAtTimestamp(
 
         // Log the actual time being used
         time_t t = timestampMs / 1000;
-        struct tm* tm = gmtime(&t);
+        struct tm tm_buf = {};
+#ifdef _WIN32
+        gmtime_s(&tm_buf, &t);
+#else
+        gmtime_r(&t, &tm_buf);
+#endif
         OM_LOG_DEBUG() << "[" << _name << "] Using current price timestamp: "
-                       << (tm->tm_year + 1900) << "-"
-                       << std::setw(2) << std::setfill('0') << (tm->tm_mon + 1) << "-"
-                       << std::setw(2) << std::setfill('0') << tm->tm_mday << " "
-                       << std::setw(2) << std::setfill('0') << tm->tm_hour << ":"
-                       << std::setw(2) << std::setfill('0') << tm->tm_min << ":"
-                       << std::setw(2) << std::setfill('0') << tm->tm_sec << " UTC";
+                       << (tm_buf.tm_year + 1900) << "-"
+                       << std::setw(2) << std::setfill('0') << (tm_buf.tm_mon + 1) << "-"
+                       << std::setw(2) << std::setfill('0') << tm_buf.tm_mday << " "
+                       << std::setw(2) << std::setfill('0') << tm_buf.tm_hour << ":"
+                       << std::setw(2) << std::setfill('0') << tm_buf.tm_min << ":"
+                       << std::setw(2) << std::setfill('0') << tm_buf.tm_sec << " UTC";
     }
 
     // Convert currencies to uppercase
