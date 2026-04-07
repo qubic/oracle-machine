@@ -62,9 +62,9 @@ uint16_t DogeService::processInterfaceQuery(
     const auto* query = reinterpret_cast<const DogeShareValidation::OracleQuery*>(queryPayload.data());
     auto* reply = reinterpret_cast<DogeShareValidation::OracleReply*>(replyPayload.data());
 
-    // Compute hash
+    // Compute 32-bytes hash from 80-bytes full header of task and solution info
     std::array<uint8_t, 32> hash;
-    scrypt_1024_1_1_256(reinterpret_cast<char*>(&query), reinterpret_cast<char*>(hash.data()));
+    scrypt_1024_1_1_256(reinterpret_cast<const char*>(query), reinterpret_cast<char*>(hash.data()));
 
     // Compare hash with target difficulty
     const std::array<uint8_t, 32>& target =
