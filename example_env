@@ -36,6 +36,12 @@ export PRICE_SERVICE_PORT=31842
 export MOCK_SERVICE_HOST=192.168.1.5
 export MOCK_SERVICE_PORT=31843
 
+# Doge Oracle Service
+# For Docker: use service name (e.g., doge-oracle-service)
+# For Local:  use IP address (e.g., 127.0.0.1)
+export DOGE_SERVICE_HOST=192.168.1.6
+export DOGE_SERVICE_PORT=31844
+
 # -----------------------------------------------------------------------------
 # Exchange API Keys (optional - for higher rate limits)
 # If not set, free tier with rate limiting will be used.

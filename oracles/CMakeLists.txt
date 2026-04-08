@@ -21,6 +21,9 @@ endif()
 message(STATUS "Build mock service")
 add_subdirectory(mock)
 
+message(STATUS "Build doge share validation service")
+add_subdirectory(doge_share_validation)
+
 # Below services depend on CURL
 if(CURL_FOUND)
     message(STATUS "Build price service")

@@ -114,6 +114,22 @@ void Config::loadFromEnv()
         _interfaces.push_back(interfaceEndpoint);
     }
 
+    // Doge share validation interface (index 2)
+    {
+        InterfaceEndpoint interfaceEndpoint;
+        interfaceEndpoint.interfaceIndex = DOGE_ORACLE_INTERFACE_INDEX;
+        interfaceEndpoint.interfaceName = "Doge";
+        getStr(
+            ConfigEnv::DOGE_SERVICE_HOST,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].host,
+            interfaceEndpoint.serviceHost);
+        getUint16(
+            ConfigEnv::DOGE_SERVICE_PORT,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].port,
+            interfaceEndpoint.servicePort);
+        _interfaces.push_back(interfaceEndpoint);
+    }
+
     print();
 
 }
