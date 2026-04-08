@@ -28,6 +28,8 @@ set(SERVICE_LINKED_LIBS
     om_network)
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" OR CMAKE_CXX_COMPILER_ID MATCHES "GNU")
+    # scrypt.c uses aggressive pointer casting that breaks under strict aliasing at -O2.
+    set_source_files_properties(src/scrypt.c PROPERTIES COMPILE_OPTIONS "-fno-strict-aliasing")
     target_compile_options(${PROJECT_NAME} PRIVATE -mrdrnd -mavx2 -fpermissive)
     set(SERVICE_LINKED_LIBS ${SERVICE_LINKED_LIBS} pthread)
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
