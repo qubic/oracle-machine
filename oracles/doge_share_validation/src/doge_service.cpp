@@ -176,10 +176,10 @@ uint16_t DogeService::processInterfaceQuery(
         sizeof(query->taskPartialHeaderVersion));
     unsigned int offset = sizeof(query->taskPartialHeaderVersion);
     memcpy(
-        fullHeader.data(),
+        fullHeader.data() + offset,
         &query->taskPartialHeaderPrevBlockHash,
         sizeof(query->taskPartialHeaderPrevBlockHash));
-    offset = sizeof(query->taskPartialHeaderVersion);
+    offset += sizeof(query->taskPartialHeaderPrevBlockHash);
     memcpy(fullHeader.data() + offset, merkleRoot.data(), merkleRoot.size());
     offset += merkleRoot.size();
     memcpy(fullHeader.data() + offset, &query->solutionTime, sizeof(query->solutionTime));
