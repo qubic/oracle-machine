@@ -304,7 +304,7 @@ void printUsage(const char* progName)
               << "  0               Request current price (timestamp=0)\n"
               << "  yyyymmddhhmmss  Specific UTC time (e.g., 20240115143022 = 2024-01-15 14:30:22 UTC)\n"
               << "\nSupported Oracles:\n"
-              << "  Single source: binance, mexc, gate, coingecko, mock\n"
+              << "  Single source: binance, mexc, gate, mock\n"
               << "  Combined:      binance_gate, binance_mexc, gate_mexc (order doesn't matter)\n"
               << "\nExamples:\n"
               << "  " << progName << " --oracle binance --pair BTC/USDT\n"
