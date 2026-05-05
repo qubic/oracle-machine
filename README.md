@@ -38,7 +38,7 @@ This is a middleware system that bridges Qubic nodes with external oracle servic
         │
    ┌────┴────┬─────────┐
    ▼         ▼         ▼
- Mock    CoinGecko  (Other)
+ Mock    Binance    (Other)
 Provider Provider   Providers
 ```
 
@@ -55,7 +55,7 @@ Provider Provider   Providers
         ↓ (cache miss)
 4. InterfaceClient forwards to oracle service
         ↓
-5. Oracle service fetches data (e.g., from CoinGecko API)
+5. Oracle service fetches data (e.g., from Binance API)
         ↓
 6. Response cached and returned to Qubic node
 ```

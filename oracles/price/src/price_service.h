@@ -100,47 +100,7 @@ private:
     std::mutex _mutex;
 };
 
-// Specific price provider
-
-// CoinGecko Price Provider
-class CoinGeckoPriceProvider : public PriceProvider
-{
-public:
-    CoinGeckoPriceProvider(const std::string& apiKey = "", const std::string& apiType = "free");
-
-    uint16_t getPrice(
-        const std::string& currency1,
-        const std::string& currency2,
-        int64_t& numerator,
-        int64_t& denominator) override;
-
-private:
-    // TODO: move this to base class
-    struct CacheEntry
-    {
-        int64_t numerator;
-        int64_t denominator;
-        time_t timestamp;
-    };
-
-    std::string _apiKey;
-    std::string _apiType;
-    std::map<std::string, std::string> _coinMap;
-    std::map<std::string, CacheEntry> _cache;
-    std::mutex _cacheMutex;
-    std::mutex _rateLimitMutex;
-    time_t _lastRequestTime;
-
-    static constexpr int CACHE_TTL = 60;            // 60 seconds
-    static constexpr double RATE_LIMIT_DELAY = 2.0; // 2 seconds
-
-    std::string getCoinId(const std::string& currency);
-    uint16_t fetchFromAPI(
-        const std::string& currency1,
-        const std::string& currency2,
-        int64_t& numerator,
-        int64_t& denominator);
-};
+// Specific price providers are implemented in separate h/cpp files
 
 // Price Service
 // This class implement the logic handle connection and using the price provider
