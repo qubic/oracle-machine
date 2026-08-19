@@ -11,3 +11,4 @@ Thumbs.db
 # Ignore IDE-specific files
 .idea/
 .vscode/
+__pycache__/

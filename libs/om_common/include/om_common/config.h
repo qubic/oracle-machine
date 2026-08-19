@@ -11,6 +11,8 @@
 constexpr const uint32_t PRICE_ORACLE_INTERFACE_INDEX = 0;
 constexpr const uint32_t MOCK_ORACLE_INTERFACE_INDEX = 1;
 constexpr const uint32_t DOGE_ORACLE_INTERFACE_INDEX = 2;
+constexpr const uint32_t READ_EVM_LOG_INTERFACE_INDEX = 3;
+constexpr const uint32_t READ_QUBIC_LOG_INTERFACE_INDEX = 4;
 constexpr const uint32_t MAX_ORACLE_INTERFACES_SUPPORT = 1024;
 
 // ENVIRONMENT VARIABLE NAMES
@@ -29,6 +31,12 @@ constexpr const char* MOCK_SERVICE_PORT = "MOCK_SERVICE_PORT";
 
 constexpr const char* DOGE_SERVICE_HOST = "DOGE_SERVICE_HOST";
 constexpr const char* DOGE_SERVICE_PORT = "DOGE_SERVICE_PORT";
+
+constexpr const char* READ_EVM_LOG_SERVICE_HOST = "READ_EVM_LOG_SERVICE_HOST";
+constexpr const char* READ_EVM_LOG_SERVICE_PORT = "READ_EVM_LOG_SERVICE_PORT";
+
+constexpr const char* READ_QUBIC_LOG_SERVICE_HOST = "READ_QUBIC_LOG_SERVICE_HOST";
+constexpr const char* READ_QUBIC_LOG_SERVICE_PORT = "READ_QUBIC_LOG_SERVICE_PORT";
 } // namespace ConfigEnv
 
 struct NodeEndpoint

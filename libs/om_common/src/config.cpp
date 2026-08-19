@@ -130,6 +130,38 @@ void Config::loadFromEnv()
         _interfaces.push_back(interfaceEndpoint);
     }
 
+    // Read EVM log interface (index 3) - generic single-log EVM read
+    {
+        InterfaceEndpoint interfaceEndpoint;
+        interfaceEndpoint.interfaceIndex = READ_EVM_LOG_INTERFACE_INDEX;
+        interfaceEndpoint.interfaceName = "ReadEvmLog";
+        getStr(
+            ConfigEnv::READ_EVM_LOG_SERVICE_HOST,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].host,
+            interfaceEndpoint.serviceHost);
+        getUint16(
+            ConfigEnv::READ_EVM_LOG_SERVICE_PORT,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].port,
+            interfaceEndpoint.servicePort);
+        _interfaces.push_back(interfaceEndpoint);
+    }
+
+    // Generic read-qubic-log interface slot (index 4)
+    {
+        InterfaceEndpoint interfaceEndpoint;
+        interfaceEndpoint.interfaceIndex = READ_QUBIC_LOG_INTERFACE_INDEX;
+        interfaceEndpoint.interfaceName = "ReadQubicLog";
+        getStr(
+            ConfigEnv::READ_QUBIC_LOG_SERVICE_HOST,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].host,
+            interfaceEndpoint.serviceHost);
+        getUint16(
+            ConfigEnv::READ_QUBIC_LOG_SERVICE_PORT,
+            ConfigDefaults::INTERFACES[interfaceEndpoint.interfaceIndex].port,
+            interfaceEndpoint.servicePort);
+        _interfaces.push_back(interfaceEndpoint);
+    }
+
     print();
 
 }

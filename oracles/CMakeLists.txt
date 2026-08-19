@@ -24,6 +24,9 @@ add_subdirectory(mock)
 message(STATUS "Build doge share validation service")
 add_subdirectory(doge_share_validation)
 
+# read_qubic_log is a Python service; its CMakeLists only installs the script into bin/
+add_subdirectory(read_qubic_log)
+
 # Below services depend on CURL
 if(CURL_FOUND)
     message(STATUS "Build price service")
@@ -31,4 +34,7 @@ if(CURL_FOUND)
 else()
     message(WARNING "Price service excluded because libcurl has not been found!")
 endif()
+
+# read_evm_log is a Python service; its CMakeLists only installs the script into bin/
+add_subdirectory(read_evm_log)
 

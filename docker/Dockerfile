@@ -25,6 +25,7 @@ RUN apt-get update && \
     apt-get install -y --no-install-recommends \
         libstdc++6 \
         libcurl4 \
+        python3 \
         ca-certificates libyaml-cpp0.7 \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
