@@ -1,3 +1,6 @@
 [submodule "submodules/qubic_core"]
 	path = submodules/qubic_core
 	url = https://github.com/qubic/core.git
+[submodule "submodules/json"]
+	path = submodules/json
+	url = https://github.com/nlohmann/json.git
