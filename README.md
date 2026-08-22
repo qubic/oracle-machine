@@ -315,9 +315,10 @@ READ_EVM_LOG_SERVICE_HOST=read-evm-log-service
 READ_EVM_LOG_SERVICE_PORT=31845
 EVM_RPC_URLS_1=https://ethereum-rpc.publicnode.com,https://eth.llamarpc.com
 
+# NOTE: should use your own bob: https://github.com/qubic/core-bob
 READ_QUBIC_LOG_SERVICE_HOST=read-qubic-log-service
 READ_QUBIC_LOG_SERVICE_PORT=31847
-BOB_URLS=http://host.docker.internal:40420
+BOB_URLS=https://bob.qubic.global,https://bob.qubic.li
 
 HOST_UID=1000
 HOST_GID=1000
