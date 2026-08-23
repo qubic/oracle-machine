@@ -59,7 +59,8 @@ export READ_QUBIC_LOG_SERVICE_PORT=31847
 
 # Bob node RPC URL(s) the service reads transaction receipts from, comma-separated. Run your OWN
 # bob; all configured bobs must return byte-identical receipts or the service abstains.
-export BOB_URLS=http://127.0.0.1:40420
+# The URL must include the /qubic RPC path (bob answers JSON-RPC only at POST /qubic).
+export BOB_URLS=http://127.0.0.1:40420/qubic
 
 # EVM JSON-RPC endpoints per chain id, comma-separated. Use >= 2 independent providers; the
 # service only answers when all endpoints agree and only reads finalized state.
