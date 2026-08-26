@@ -16,6 +16,8 @@ Env: READ_QUBIC_LOG_SERVICE_PORT (default 9006), BOB_URLS (comma-separated bob R
 
 import json
 import os
+import signal
+import socket
 import socketserver
 import struct
 import sys
@@ -27,6 +29,8 @@ OM_QUERY_TYPE = 190
 OM_REPLY_TYPE = 191
 MAX_RPC_RESPONSE_BYTES = 8 * 1024 * 1024
 RPC_TIMEOUT_S = 10
+SOCKET_TIMEOUT_S = 600  # mirrors core's BaseOracleService::TIME_OUT_MS
+MAX_FRAME_BYTES = 4096  # larger frame means corrupt framing, not an unrelated message
 
 # Result codes (mirror core's OI::QubicLogRead)
 SUCCESS = 0
@@ -232,13 +236,24 @@ def recv_exact(sock, n):
 
 
 class Handler(socketserver.BaseRequestHandler):
+    def setup(self):
+        self.request.settimeout(SOCKET_TIMEOUT_S)
+
     def handle(self):
+        try:
+            self.serve()
+        except socket.timeout:
+            return  # idle too long; the node reconnects
+
+    def serve(self):
         while True:
             header = recv_exact(self.request, 8)
             if header is None:
                 return
             size = header[0] | (header[1] << 8) | (header[2] << 16)
             msg_type = header[3]
+            if size < 8 or size > MAX_FRAME_BYTES:
+                return  # corrupt framing: cannot resync, drop the connection
             body = recv_exact(self.request, size - 8)
             if body is None:
                 return
@@ -263,6 +278,7 @@ class Handler(socketserver.BaseRequestHandler):
 
 class Server(socketserver.ThreadingTCPServer):
     allow_reuse_address = True
+    daemon_threads = True
 
 
 def main():
@@ -274,6 +290,7 @@ def main():
         print(f"usage: {sys.argv[0]} [--log FILE]")
         return 0 if args[:1] == ["--help"] else 1
 
+    signal.signal(signal.SIGTERM, lambda *_: sys.exit(0))
     urllib.request.install_opener(urllib.request.build_opener(urllib.request.ProxyHandler({})))
     bobs = load_bobs()
     if not bobs:
@@ -284,7 +301,13 @@ def main():
     server = Server(("0.0.0.0", port), Handler)
     server.bobs = bobs
     print(f"[ReadQubicLog] listening on {port}")
-    server.serve_forever()
+    try:
+        server.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        server.server_close()
+        print("[ReadQubicLog] shutdown")
     return 0
 
 
