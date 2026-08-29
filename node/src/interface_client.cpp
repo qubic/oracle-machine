@@ -133,6 +133,9 @@ bool InterfaceClient::connect()
         return false;
     }
 
+    // Disable Nagle's algorithm for low-latency request/response
+    _session->setNoDelay(true);
+
     OM_LOG_INFO() << "InterfaceClient[" << _interfaceIndex << "] Connected.";
     _connected.store(true);
     return true;
@@ -363,9 +366,10 @@ int InterfaceClient::sendAndReceive(const QueryRequest& request, InterfaceQueryR
         return -1;
     }
 
-    // Receive reply payload
+    // Receive reply payload into full packet buffer (header + payload)
     result.replyData.resize(headerBuffer.size());
-    int received = _session->receive(
+    std::memcpy(result.replyData.data(), &headerBuffer, sizeof(RequestResponseHeader));
+    int received = _session->receiveExact(
         result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
 
     if (received != (int)headerBuffer.getPayloadSize())

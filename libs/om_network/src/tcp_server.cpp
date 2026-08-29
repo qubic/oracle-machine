@@ -329,8 +329,11 @@ void TcpServer::clientThread(int clientFd, std::string clientIP)
     Session session(clientFd, clientIP, 0);
 
     // Set the timeout per operation
-    session.setTimeout(_timeoutMs); 
-    
+    session.setTimeout(_timeoutMs);
+
+    // Disable Nagle's algorithm for low-latency request/response
+    session.setNoDelay(true);
+
     // Enable TCP Keep-Alive. Currently using system defaults.(~2 hours)
     session.setKeepAlive(true);
 
