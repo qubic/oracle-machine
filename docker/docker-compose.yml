@@ -33,6 +33,39 @@ services:
     networks:
       - oracle-net
 
+# Read EVM Log Oracle service
+  read-evm-log-service:
+    image: oracle-machine:latest
+    container_name: read-evm-log-service
+    volumes:
+      - ./logs:/opt/qubic/oracle-machine/logs
+    env_file:
+      - docker_local.env
+    user: "${HOST_UID}:${HOST_GID}"
+    # No published ports: the OM node reaches this service via the oracle-net service name.
+    restart: unless-stopped
+    command: ["read_evm_log_service", "--log","/opt/qubic/oracle-machine/logs/read_evm_log_service.log"]
+    networks:
+      - oracle-net
+
+# Read Qubic Log Oracle service
+  read-qubic-log-service:
+    image: oracle-machine:latest
+    container_name: read-qubic-log-service
+    volumes:
+      - ./logs:/opt/qubic/oracle-machine/logs
+    env_file:
+      - docker_local.env
+    user: "${HOST_UID}:${HOST_GID}"
+    # No published ports: the OM node reaches this service via the oracle-net service name.
+    # host-gateway makes the operator's own bob on the host reachable as host.docker.internal.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+    command: ["read_qubic_log_service", "--log","/opt/qubic/oracle-machine/logs/read_qubic_log_service.log"]
+    networks:
+      - oracle-net
+
 # Network config
 networks:
   oracle-net:

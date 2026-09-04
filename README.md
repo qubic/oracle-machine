@@ -254,6 +254,8 @@ cd docker
 
 # Quick rebuild (reuses dev image)
 ./build_docker.sh --build-all 0 --version latest
+# NOTE: upgrading from a pre-python image requires --build-all 1 once
+# (the runtime base gained python3 for the read_evm_log / read_qubic_log services).
 ```
 
 **Docker images created**:
@@ -308,6 +310,18 @@ QUBIC_NODES=10.29.1.22,127.0.0.1
 # Use Docker service names
 PRICE_SERVICE_HOST=price-oracle-service
 PRICE_SERVICE_PORT=31842
+
+READ_EVM_LOG_SERVICE_HOST=read-evm-log-service
+READ_EVM_LOG_SERVICE_PORT=31845
+EVM_RPC_URLS_1=https://ethereum-rpc.publicnode.com,https://eth.llamarpc.com
+
+# NOTE: run your OWN bob (https://github.com/qubic/core-bob) — a shared third-party bob could
+# forge log content. The URL must include the /qubic RPC path.
+READ_QUBIC_LOG_SERVICE_HOST=read-qubic-log-service
+READ_QUBIC_LOG_SERVICE_PORT=31847
+BOB_URLS=http://host.docker.internal:40420/qubic
+# public fallback for a quick test only (NOT for production oracle duty):
+# BOB_URLS=https://bob.qubic.global/qubic,https://bob.qubic.li/qubic
 
 HOST_UID=1000
 HOST_GID=1000

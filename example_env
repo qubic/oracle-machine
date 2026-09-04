@@ -43,6 +43,37 @@ export DOGE_SERVICE_HOST=192.168.1.6
 export DOGE_SERVICE_PORT=31844
 
 # -----------------------------------------------------------------------------
+# GENERIC ORACLE SERVICES
+# -----------------------------------------------------------------------------
+
+# read_evm_log Oracle Service (interface index 3): generic single-log EVM read.
+# Python service: python3 oracles/read_evm_log/read_evm_log_service.py
+# For Docker: use the service name; for Local: use an IP address.
+export READ_EVM_LOG_SERVICE_HOST=192.168.1.7
+export READ_EVM_LOG_SERVICE_PORT=31845
+
+# read_qubic_log Oracle Service (interface index 4): generic single-log Qubic read.
+# Python service: python3 oracles/read_qubic_log/read_qubic_log_service.py
+export READ_QUBIC_LOG_SERVICE_HOST=192.168.1.8
+export READ_QUBIC_LOG_SERVICE_PORT=31847
+
+# Bob node RPC URL(s) the service reads transaction receipts from, comma-separated. Run your OWN
+# bob; all configured bobs must return byte-identical receipts or the service abstains.
+# The URL must include the /qubic RPC path (bob answers JSON-RPC only at POST /qubic).
+export BOB_URLS=http://127.0.0.1:40420/qubic
+
+# EVM JSON-RPC endpoints per chain id, comma-separated. Use >= 2 independent providers; the
+# service only answers when all endpoints agree and only reads finalized state.
+export EVM_RPC_URLS_1=https://ethereum-rpc.publicnode.com,https://eth.llamarpc.com
+export EVM_RPC_URLS_56=https://bsc-rpc.publicnode.com,https://binance.llamarpc.com
+
+# Ethereum Sepolia testnet (chain id 11155111).
+export EVM_RPC_URLS_11155111=https://ethereum-sepolia-rpc.publicnode.com,https://sepolia.drpc.org
+
+# Optional per-chain finality override: (latest - N) instead of the "finalized" tag.
+# export EVM_MIN_CONFIRMATIONS_56=30
+
+# -----------------------------------------------------------------------------
 # Exchange API Keys (optional - for higher rate limits)
 # If not set, free tier with rate limiting will be used.
 
