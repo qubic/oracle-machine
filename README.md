@@ -327,6 +327,9 @@ HOST_UID=1000
 HOST_GID=1000
 ```
 
+`read_evm_log` / `read_qubic_log` are Python services shipped in the same image (build once with
+`--build-all 1`). Details: `oracles/read_evm_log/README.md`, `oracles/read_qubic_log/README.md`.
+
 # Running the System
 
 ## Native Execution
@@ -348,12 +351,17 @@ source .env
 ```bash
 cd docker
 
-# Start all services
+# Start all services (node, price, read_evm_log, read_qubic_log)
 docker-compose up -d
+
+# Or only the log readers
+docker-compose up -d read-evm-log-service read-qubic-log-service
 
 # View logs
 docker-compose logs -f oracle-machine-node
 docker-compose logs -f price-oracle-service
+docker-compose logs -f read-evm-log-service
+docker-compose logs -f read-qubic-log-service
 
 # Stop services
 docker-compose down

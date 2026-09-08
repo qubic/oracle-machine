@@ -70,7 +70,8 @@ export EVM_RPC_URLS_56=https://bsc-rpc.publicnode.com,https://binance.llamarpc.c
 # Ethereum Sepolia testnet (chain id 11155111).
 export EVM_RPC_URLS_11155111=https://ethereum-sepolia-rpc.publicnode.com,https://sepolia.drpc.org
 
-# Optional per-chain finality override: (latest - N) instead of the "finalized" tag.
+# Optional: raise the built-in per-chain confirmation depth (latest - N). Cannot lower it;
+# defaults live in MIN_CONFIRMATIONS in read_evm_log_service.py (Ethereum 64, BSC 20, ...).
 # export EVM_MIN_CONFIRMATIONS_56=30
 
 # -----------------------------------------------------------------------------
