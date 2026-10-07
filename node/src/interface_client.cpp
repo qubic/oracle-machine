@@ -363,7 +363,19 @@ int InterfaceClient::sendAndReceive(const QueryRequest& request, InterfaceQueryR
         return -1;
     }
 
-    // Receive reply payload
+    // Receive reply payload. headerBuffer.size() is controlled by the remote
+    // interface; a value below sizeof(RequestResponseHeader) makes
+    // getPayloadSize() (unsigned) underflow to ~4e9 and leaves replyData too
+    // small, so receive() would write past the buffer. Reject it first, as
+    // NodeConnection already does for inbound node packets.
+    if (headerBuffer.size() < sizeof(RequestResponseHeader))
+    {
+        OM_LOG_ERROR() << "InterfaceClient[" << _interfaceIndex << "] Request #"
+                       << request.requestID << " failed: invalid reply size "
+                       << headerBuffer.size();
+        _session->close();
+        return -1;
+    }
     result.replyData.resize(headerBuffer.size());
     int received = _session->receive(
         result.replyData.data() + sizeof(RequestResponseHeader), headerBuffer.getPayloadSize());
