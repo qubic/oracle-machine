@@ -87,28 +87,23 @@ bool NodeConnection::sendResponseToNode(
     const uint8_t* payload,
     int payload_size)
 {
-    // TODO: check if we need to combine the header and payload into a single buffer for sending
-
     RequestResponseHeader header;
     header.checkAndSetSize(sizeof(RequestResponseHeader) + payload_size);
     header.setType(type);
     header.randomizeDejavu();
 
-    // Send header
-    if (!session.sendData((const uint8_t*)&header, sizeof(header)))
-    {
-        OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (header)";
-        return false;
-    }
-
-    // Send payload
+    // Combine header and payload into a single buffer to send as one TCP write
+    std::vector<uint8_t> buffer(sizeof(RequestResponseHeader) + payload_size);
+    std::memcpy(buffer.data(), &header, sizeof(RequestResponseHeader));
     if (payload_size > 0 && payload != nullptr)
     {
-        if (!session.sendData(payload, payload_size))
-        {
-            OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED (payload)";
-            return false;
-        }
+        std::memcpy(buffer.data() + sizeof(RequestResponseHeader), payload, payload_size);
+    }
+
+    if (!session.sendData(buffer.data(), buffer.size()))
+    {
+        OM_LOG_WARNING() << "Respond to node " << session.getRemoteIP() << " - FAILED";
+        return false;
     }
 
     OM_LOG_DEBUG() << "Respond to node " << session.getRemoteIP();

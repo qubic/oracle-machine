@@ -40,6 +40,9 @@ public:
     // Enable TCP Keep-Alive packets
     void setKeepAlive(bool enable, int idleSec = 60, int intervalSec = 10, int count = 3);
 
+    // Enable/disable TCP_NODELAY (disable Nagle's algorithm)
+    bool setNoDelay(bool enable);
+
     // Get connection information
     const std::string& getRemoteIP() const { return _remoteIP; }
     uint16_t getRemotePort() const { return _remotePort; }
