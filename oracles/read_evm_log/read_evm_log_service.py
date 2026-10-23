@@ -11,7 +11,7 @@ Speaks the OM node <-> service protocol of oracles/core/base_oracle_service.cpp:
   reply:  header 8B (size LE24 | type=191 | dejavu=0)   | OracleMachineReply 16B | payload 440B
 
 Env: READ_EVM_LOG_SERVICE_PORT (default 9005), EVM_RPC_URLS_<chainId> (comma-separated),
-EVM_MIN_CONFIRMATIONS_<chainId> (optional: latest-N instead of the "finalized" tag).
+EVM_MIN_CONFIRMATIONS_<chainId> (optional: raise the built-in per-chain confirmation depth).
 """
 
 import json
@@ -46,7 +46,18 @@ NO_ERROR = 0x0
 ORACLE_UNAVAIL = 0x2
 INVALID_ARG = 0x10
 
-SUPPORTED_CHAIN_IDS = [1, 10, 56, 137, 250, 8453, 43114, 42161, 11155111]
+# Finality = latest - N. Hard-coded per chain; env may only raise, never lower.
+MIN_CONFIRMATIONS = {
+    1: 64,            # Ethereum (2 epochs = finalized)
+    10: 450,          # Optimism (2s blocks, ~15 min)
+    56: 20,           # BSC
+    137: 256,         # Polygon
+    250: 10,          # Fantom
+    8453: 450,        # Base (2s blocks, ~15 min)
+    43114: 10,        # Avalanche
+    42161: 3600,      # Arbitrum One (0.25s blocks, ~15 min)
+    11155111: 64,     # Sepolia (2 epochs = finalized)
+}
 INTERFACE_INDEX = 3
 
 
@@ -59,7 +70,7 @@ def hexb(s):
 
 def load_chains():
     chains = {}
-    for chain_id in SUPPORTED_CHAIN_IDS:
+    for chain_id, default_conf in MIN_CONFIRMATIONS.items():
         urls = os.environ.get(f"EVM_RPC_URLS_{chain_id}", "")
         endpoints = [u.strip() for u in urls.split(",") if u.strip()]
         if not endpoints:
@@ -67,7 +78,7 @@ def load_chains():
         conf = os.environ.get(f"EVM_MIN_CONFIRMATIONS_{chain_id}", "")
         chains[chain_id] = {
             "endpoints": endpoints,
-            "min_confirmations": max(0, int(conf)) if conf else 0,
+            "min_confirmations": max(default_conf, int(conf)) if conf else default_conf,
         }
     return chains
 
@@ -110,11 +121,8 @@ def normalize_receipt(result):
 
 
 def finalized_head(endpoint, chain):
-    if chain["min_confirmations"]:
-        latest = rpc(endpoint, "eth_getBlockByNumber", ["latest", False])
-        return int(latest["number"], 16) - chain["min_confirmations"]
-    block = rpc(endpoint, "eth_getBlockByNumber", ["finalized", False])
-    return int(block["number"], 16)
+    latest = rpc(endpoint, "eth_getBlockByNumber", ["latest", False])
+    return int(latest["number"], 16) - chain["min_confirmations"]
 
 
 def get_receipt(chain, tx_hash_hex):
@@ -253,9 +261,8 @@ def main():
         return 1
     port = int(os.environ.get("READ_EVM_LOG_SERVICE_PORT", "9005"))
     for chain_id, chain in chains.items():
-        finality = (f"{chain['min_confirmations']} confirmations"
-                    if chain["min_confirmations"] else '"finalized" tag')
-        print(f"[ReadEvmLog] chain {chain_id}: {len(chain['endpoints'])} endpoint(s), {finality}")
+        print(f"[ReadEvmLog] chain {chain_id}: {len(chain['endpoints'])} endpoint(s), "
+              f"{chain['min_confirmations']} confirmations")
     server = Server(("0.0.0.0", port), Handler)
     server.chains = chains
     print(f"[ReadEvmLog] listening on {port}")

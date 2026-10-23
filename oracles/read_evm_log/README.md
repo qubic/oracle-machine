@@ -53,7 +53,7 @@ oracle error flag and commits nothing) so it never records a reply other computo
 |----------------------------------|--------------------------------------------------------------------|
 | `READ_EVM_LOG_SERVICE_HOST/PORT` | host/port of the interface slot the OM node reaches this service on (default port 9005) |
 | `EVM_RPC_URLS_<chainId>`         | comma-separated JSON-RPC URLs for a chain (>= 2 providers recommended) |
-| `EVM_MIN_CONFIRMATIONS_<chainId>`| optional; use `latest - N` instead of the `finalized` block tag    |
+| `EVM_MIN_CONFIRMATIONS_<chainId>`| optional; raise the built-in confirmation depth (cannot lower it)  |
 
 The node's `Config::loadFromEnv` registers the interface slot (default index 3) with its host/port;
 the node routes an incoming oracle query for that index to this service's socket.
@@ -62,8 +62,10 @@ Run: `python3 read_evm_log_service.py` (Python 3.8+, no third-party packages).
 
 ## Determinism guarantees
 
-- **Finalized only.** A tx counts as final only if its block is at or below the finalized head
-  reported by *every* configured endpoint. The service never reads `latest`.
+- **Finalized only.** A tx counts as final only if its block is at least `N` blocks below the
+  `latest` head reported by *every* configured endpoint. `N` is hard-coded per chain in
+  `MIN_CONFIRMATIONS` (Ethereum 64, BSC 20, Polygon 256, ...); `EVM_MIN_CONFIRMATIONS_<chainId>`
+  can only raise it.
 - **Multi-provider byte-agreement.** Every read queries all endpoints of the chain and requires
   byte-identical normalized results.
 - **Abstain on disagreement.** Any endpoint failure or disagreement yields a transport error and no
